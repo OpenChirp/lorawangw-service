@@ -3,6 +3,9 @@ package main
 import (
 	"flag"
 	"fmt"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/openchirp/framework"
@@ -55,12 +58,24 @@ func main() {
 		fmt.Println("Error - ", err)
 	}
 
-	fmt.Println("Success!!!!")
+	fmt.Println("# Starting to process device updates")
 
-	for update := range updates {
-		fmt.Println(update)
-		c.SetDeviceStatus(update.Id, "Asked to reg gwid \"", update.Config["Gateway ID"], "\" at ", time.Now().Format(time.UnixDate))
+	signals := make(chan os.Signal)
+	signal.Notify(signals, syscall.SIGINT)
+
+	for {
+		select {
+		case update := <-updates:
+			fmt.Println(update)
+			c.SetDeviceStatus(update.Id, "Asked to reg gwid \"", update.Config["Gateway ID"], "\" at ", time.Now().Format(time.UnixDate))
+		case <-signals:
+			goto cleanup
+		}
 	}
 
+cleanup:
+
+	fmt.Println("# Shutting Down")
+	c.StopDeviceUpdates()
 	c.StopClient()
 }
