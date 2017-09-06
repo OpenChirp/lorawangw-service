@@ -2,8 +2,8 @@ package main
 
 type MQTT interface {
 	Subscribe(topic string, callback func(topic string, payload []byte)) error
-	Unsubscribe(topic string) error
-	Publish(topic string, payload []byte) error
+	Unsubscribe(topics ...string) error
+	Publish(topic string, payload interface{}) error
 }
 
 type BridgeService struct {
