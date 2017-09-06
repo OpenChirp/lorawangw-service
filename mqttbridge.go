@@ -109,20 +109,23 @@ func (b *BridgeService) AddLinkRev(deviceid, topica, topicb string) error {
 func (b *BridgeService) RemoveLinksAll(deviceid string) error {
 	var err error
 	if ls, ok := b.devicelinks[deviceid]; ok {
-		for _, l := range ls.fwd {
-			e := b.mqtta.Unsubscribe(l)
+		if len(ls.fwd) > 0 {
+			e := b.mqtta.Unsubscribe(ls.fwd...)
 			// save and return only first error
 			if e != nil && err == nil {
 				err = e
 			}
 		}
-		for _, l := range ls.rev {
-			e := b.mqttb.Unsubscribe(l)
+		if len(ls.rev) > 0 {
+			e := b.mqttb.Unsubscribe(ls.rev...)
 			// save and return only first error
 			if e != nil && err == nil {
 				err = e
 			}
 		}
+		ls.fwd = nil
+		ls.rev = nil
+		delete(b.devicelinks, deviceid)
 	}
 	return err
 }
