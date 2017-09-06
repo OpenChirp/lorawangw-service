@@ -1,14 +1,19 @@
+// The order the loraserverMQTT arguments are picked up is as follows:
+// 1) If lsbroker is specified on commandline, use all cmdline parameters
+// 2) If lsbroker is specified as a service property, use all service props
+// 3) If broker was unset in 1 or 2, set Broker, User, and Pass from framework args
 package main
 
 import (
 	"flag"
-	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
 	"github.com/openchirp/framework"
+
+	log "github.com/sirupsen/logrus"
 )
 
 const (
@@ -16,6 +21,15 @@ const (
 	defaultBrokerURI    = "tls://localhost:1883"
 	defaultServiceID    = ""
 	defaultServiceToken = ""
+
+	defaultLsBroker = "<framework_broker>"
+	defaultLsQoS    = "2"
+	defaultLsUser   = "<framework_id>"
+	defaultLsPass   = "<framework_pass>"
+)
+
+const (
+	gatewayIdKey = "Gateway ID"
 )
 
 /* Options to be filled in by arguments */
@@ -24,58 +38,140 @@ var brokerURI string
 var serviceID string
 var serviceToken string
 
-/* HACK to allow us to use raw MQTT during conversion period */
-var mqttQos int64
+var loraserverMQTTBroker string
+var loraserverMQTTQoS string
+var loraserverMQTTUser string
+var loraserverMQTTPass string
 
 /* Setup argument flags and help prompt */
 func init() {
+	/* Setup Logging */
+	log.SetOutput(os.Stderr)
+
+	/* Setup Arguments */
 	flag.StringVar(&frameworkURI, "framework", defaultFrameworkURI, "Sets the HTTP REST framework server URI")
 	flag.StringVar(&brokerURI, "broker", defaultBrokerURI, "Sets the MQTT broker URI associated with the framework server")
 	flag.StringVar(&serviceID, "id", defaultServiceID, "Sets the service ID associated with this service instance")
 	flag.StringVar(&serviceToken, "token", defaultServiceToken, "Sets the service access token associated with this instance")
+
+	flag.StringVar(&loraserverMQTTBroker, "lsbroker", defaultLsBroker, "Sets the loraserver's MQTT broker")
+	flag.StringVar(&loraserverMQTTQoS, "lsqos", defaultLsQoS, "Sets the loraserver's MQTT QoS")
+	flag.StringVar(&loraserverMQTTUser, "lsuser", defaultLsUser, "Sets the loraserver's MQTT Username")
+	flag.StringVar(&loraserverMQTTPass, "lspass", defaultLsPass, "Sets the loraserver's MQTT Password")
 }
 
 func main() {
-	// var lorawanMQTTQos string
-	// var lorawanMQTTBroker string
-	// var lorawanMQTTUser string
-	// var lorawanMQTTPass string
-
 	flag.Parse()
+
+	log.Info("Starting LoRaWAN Gateways Service")
 
 	c, err := framework.StartServiceClient(frameworkURI, brokerURI, serviceID, serviceToken)
 	if err != nil {
-		fmt.Println("Error - ", err)
+		log.Error("Failed to StartServiceClient: ", err)
+		return
 	}
+	log.Info("Started LoRaWAN Gateways Service")
 
 	err = c.SetStatus("Started GW service")
 	if err != nil {
-		fmt.Println("Error - ", err)
+		log.Error("Failed to publish service status: ", err)
+		return
+	}
+	log.Info("Published Service Status")
+
+	/* Hunt dow the loraserver MQTT parameters */
+	if loraserverMQTTBroker == defaultLsBroker {
+		// Try setting loraserverMQTT parameters from service properties
+		loraserverMQTTBroker = c.GetProperty("LorawanMQTTBroker")
+		loraserverMQTTQoS = c.GetProperty("LorawanMQTTQos")
+		loraserverMQTTUser = c.GetProperty("LorawanMQTTUser")
+		loraserverMQTTPass = c.GetProperty("LorawanMQTTPass")
+
+		if loraserverMQTTBroker == "" {
+			// Set to framework mqtt parameters
+			loraserverMQTTBroker = brokerURI
+			loraserverMQTTQoS = defaultLsQoS
+			loraserverMQTTUser = serviceID
+			loraserverMQTTPass = serviceToken
+		}
+		// Using all service properties parameters
+	} else {
+		// Using all commandline parameters
+		if loraserverMQTTUser == defaultLsUser {
+			loraserverMQTTUser = ""
+		}
+		if loraserverMQTTPass == defaultLsPass {
+			loraserverMQTTPass = ""
+		}
 	}
 
+	/* Start the loraserver interface MQTT client */
+	log.Info("Starting loraserver MQTT client")
+	lsMQTT, err := NewMQTTClient(
+		loraserverMQTTBroker,
+		loraserverMQTTUser,
+		loraserverMQTTPass,
+		ParseMQTTQoS(loraserverMQTTQoS),
+		false,
+	)
+	if err != nil {
+		log.Error("Failed to start loraserver MQTT client: ", err)
+		return
+	}
+
+	/* Create the MQTT bridge manager */
+	mqttBridge := NewBridgeService(c, lsMQTT)
+
+	log.Info("Starting Device Updates Stream")
 	updates, err := c.StartDeviceUpdates()
 	if err != nil {
-		fmt.Println("Error - ", err)
+		log.Error("Failed to start device updates stream: ", err)
+		return
 	}
 
-	fmt.Println("# Starting to process device updates")
-
+	log.Info("Processing device updates")
 	signals := make(chan os.Signal)
 	signal.Notify(signals, syscall.SIGINT)
 
 	for {
 		select {
 		case update := <-updates:
-			fmt.Println(update)
+			gwid, ok := update.Config[gatewayIdKey]
+			logitem := log.WithFields(log.Fields{"type": update.Type, "devid": update.Id, "gwid": gwid})
+			if !ok {
+				logitem.Warn("No \"", gatewayIdKey, "\" key specified in config")
+				continue
+			}
+			logitem.Info("Received Device Update")
 			c.SetDeviceStatus(update.Id, "Asked to reg gwid \"", update.Config["Gateway ID"], "\" at ", time.Now().Format(time.UnixDate))
+
+			switch update.Type {
+			case framework.DeviceUpdateTypeRem:
+				logitem.Info("Removing links")
+				mqttBridge.RemoveLinksAll(update.Id)
+			case framework.DeviceUpdateTypeUpd:
+				logitem.Info("Removing links for update")
+				mqttBridge.RemoveLinksAll(update.Id)
+				fallthrough
+			case framework.DeviceUpdateTypeAdd:
+				logitem.Info("Adding links")
+				devTopic := "openchirp/devices/" + update.Id + "/transducer"
+				lsTopic := "gateway/" + gwid
+				logitem.Infof("Adding link %s --> %s", devTopic+"/rx", lsTopic+"/rx")
+				mqttBridge.AddLinkFwd(update.Id, devTopic+"/rx", lsTopic+"/rx")
+				logitem.Infof("Adding link %s --> %s", devTopic+"/status", lsTopic+"/status")
+				mqttBridge.AddLinkFwd(update.Id, devTopic+"/status", lsTopic+"/status")
+				logitem.Infof("Adding link %s <-- %s", devTopic+"/tx", lsTopic+"/tx")
+				mqttBridge.AddLinkRev(update.Id, devTopic+"/tx", lsTopic+"/tx")
+			}
 		case <-signals:
 			goto cleanup
 		}
 	}
 
 cleanup:
-
-	fmt.Println("# Shutting Down")
+	log.Info("Shutting down")
+	lsMQTT.Disconnect()
 	c.StopDeviceUpdates()
 	c.StopClient()
 }
