@@ -36,6 +36,11 @@ func NewBridgeService(mqtta, mqttb MQTT) *BridgeService {
 	return b
 }
 
+func (b *BridgeService) IsDeviceLinked(deviceid string) bool {
+	_, ok := b.devicelinks[deviceid]
+	return ok
+}
+
 func (b *BridgeService) IsLinkFwd(deviceid, topica string) bool {
 	if ls, ok := b.devicelinks[deviceid]; ok {
 		for _, l := range ls.fwd {
