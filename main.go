@@ -101,10 +101,10 @@ func main() {
 	/* Hunt dow the loraserver MQTT parameters */
 	if loraserverMQTTBroker == defaultLsBroker {
 		// Try setting loraserverMQTT parameters from service properties
-		loraserverMQTTBroker = c.GetProperty("LorawanMQTTBroker")
-		loraserverMQTTQoS = c.GetProperty("LorawanMQTTQos")
-		loraserverMQTTUser = c.GetProperty("LorawanMQTTUser")
-		loraserverMQTTPass = c.GetProperty("LorawanMQTTPass")
+		loraserverMQTTBroker = c.GetProperty("MQTTBroker")
+		loraserverMQTTQoS = c.GetProperty("MQTTQos")
+		loraserverMQTTUser = c.GetProperty("MQTTUser")
+		loraserverMQTTPass = c.GetProperty("MQTTPass")
 
 		if loraserverMQTTBroker == "" {
 			// Set to framework mqtt parameters
@@ -129,6 +129,10 @@ func main() {
 		}
 		logitem := log.WithFields(log.Fields{"user": loraserverMQTTUser, "broker": loraserverMQTTBroker})
 		logitem.Info("Used loraserver's MQTT broker parameters from commandline")
+	}
+	// Set QoS if not specified
+	if loraserverMQTTQoS == "" {
+		loraserverMQTTQoS = defaultLsQoS
 	}
 
 	/* Start the loraserver interface MQTT client */
