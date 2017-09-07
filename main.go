@@ -222,7 +222,7 @@ func main() {
 				logitem.Infof("Adding link %s --> %s", devTopic+"/rx", lsTopic+"/rx")
 				mqttBridge.AddLinkFwd(update.Id, devTopic+"/rx", lsTopic+"/rx")
 				logitem.Infof("Adding link %s --> %s", devTopic+"/status", lsTopic+"/status")
-				mqttBridge.AddLinkFwd(update.Id, devTopic+"/status", lsTopic+"/status")
+				mqttBridge.AddLinkFwd(update.Id, devTopic+"/stats", lsTopic+"/stats")
 				logitem.Infof("Adding link %s <-- %s", devTopic+"/tx", lsTopic+"/tx")
 				mqttBridge.AddLinkRev(update.Id, devTopic+"/tx", lsTopic+"/tx")
 				c.SetDeviceStatus(update.Id, "Linked as gateway ", gwid)
