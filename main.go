@@ -8,8 +8,8 @@ import (
 	"flag"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
-	"time"
 
 	"github.com/openchirp/framework"
 
@@ -29,7 +29,9 @@ const (
 )
 
 const (
-	gatewayIdKey = "Gateway ID"
+	hexChars        = "0123456789abcdef"
+	gatewayIdKey    = "Gateway ID"
+	gatewayIdLength = len("D00D8BADF00D0001")
 )
 
 /* Options to be filled in by arguments */
@@ -42,6 +44,15 @@ var loraserverMQTTBroker string
 var loraserverMQTTQoS string
 var loraserverMQTTUser string
 var loraserverMQTTPass string
+
+func isHexCharacters(id string) bool {
+	for _, c := range id {
+		if !(('0' <= c && c <= '9') || ('a' <= c && c <= 'f') || ('A' <= c && c <= 'F')) {
+			return false
+		}
+	}
+	return true
+}
 
 /* Setup argument flags and help prompt */
 func init() {
@@ -72,7 +83,7 @@ func main() {
 	}
 	log.Info("Started LoRaWAN Gateways Service")
 
-	err = c.SetStatus("Started GW service")
+	err = c.SetStatus("Starting")
 	if err != nil {
 		log.Error("Failed to publish service status: ", err)
 		return
@@ -93,8 +104,11 @@ func main() {
 			loraserverMQTTQoS = defaultLsQoS
 			loraserverMQTTUser = serviceID
 			loraserverMQTTPass = serviceToken
+			log.Info("Used loraserver's MQTT broker parameters from framework broker settings")
+		} else {
+			// Using all service properties parameters
+			log.Info("Used loraserver's MQTT broker parameters from service properties")
 		}
-		// Using all service properties parameters
 	} else {
 		// Using all commandline parameters
 		if loraserverMQTTUser == defaultLsUser {
@@ -103,6 +117,7 @@ func main() {
 		if loraserverMQTTPass == defaultLsPass {
 			loraserverMQTTPass = ""
 		}
+		log.Info("Used loraserver's MQTT broker parameters from commandline")
 	}
 
 	/* Start the loraserver interface MQTT client */
@@ -133,17 +148,17 @@ func main() {
 	signals := make(chan os.Signal)
 	signal.Notify(signals, syscall.SIGINT)
 
+	err = c.SetStatus("Started")
+	if err != nil {
+		log.Error("Failed to publish service status: ", err)
+		return
+	}
+	log.Info("Published Service Status")
+
 	for {
 		select {
 		case update := <-updates:
-			gwid, ok := update.Config[gatewayIdKey]
-			logitem := log.WithFields(log.Fields{"type": update.Type, "devid": update.Id, "gwid": gwid})
-			if !ok {
-				logitem.Warn("No \"", gatewayIdKey, "\" key specified in config")
-				continue
-			}
-			logitem.Info("Received Device Update")
-			c.SetDeviceStatus(update.Id, "Asked to reg gwid \"", update.Config["Gateway ID"], "\" at ", time.Now().Format(time.UnixDate))
+			logitem := log.WithFields(log.Fields{"type": update.Type, "devid": update.Id, "gwid": update.Config[gatewayIdKey]})
 
 			switch update.Type {
 			case framework.DeviceUpdateTypeRem:
@@ -155,6 +170,29 @@ func main() {
 				fallthrough
 			case framework.DeviceUpdateTypeAdd:
 				logitem.Info("Adding links")
+				gwid, ok := update.Config[gatewayIdKey]
+				/* Check that the Gateway ID parameter was specified in the config */
+				if !ok {
+					logitem.Warn("No \"", gatewayIdKey, "\" key specified in config")
+					c.SetDeviceStatus(update.Id, "No Gateway ID in config")
+					continue
+				}
+				/* Check the length of the gateway id */
+				if len(gwid) != gatewayIdLength {
+					logitem.Warn("Gateway ID \"", gwid, "\" contains invalid hex characters")
+					c.SetDeviceStatus(update.Id, "Gateway ID has invalid length (", len(gwid), "!=", gatewayIdLength, ")")
+					continue
+				}
+				/* Check that all characters are valid hex characters */
+				if !isHexCharacters(gwid) {
+					logitem.Warn("Gateway ID \"", gwid, "\" contains non-hex characters")
+					c.SetDeviceStatus(update.Id, "Gateway ID contains non-hex chars")
+					continue
+				}
+				/* Change case to lowercase */
+				gwid = strings.ToLower(gwid)
+
+				c.SetDeviceStatus(update.Id, "Linking as gateway ", gwid)
 				devTopic := "openchirp/devices/" + update.Id + "/transducer"
 				lsTopic := "gateway/" + gwid
 				logitem.Infof("Adding link %s --> %s", devTopic+"/rx", lsTopic+"/rx")
@@ -163,6 +201,7 @@ func main() {
 				mqttBridge.AddLinkFwd(update.Id, devTopic+"/status", lsTopic+"/status")
 				logitem.Infof("Adding link %s <-- %s", devTopic+"/tx", lsTopic+"/tx")
 				mqttBridge.AddLinkRev(update.Id, devTopic+"/tx", lsTopic+"/tx")
+				c.SetDeviceStatus(update.Id, "Linked as gateway ", gwid)
 			}
 		case <-signals:
 			goto cleanup
@@ -171,6 +210,14 @@ func main() {
 
 cleanup:
 	log.Info("Shutting down")
+
+	err = c.SetStatus("Shutting down")
+	if err != nil {
+		log.Error("Failed to publish service status: ", err)
+		return
+	}
+	log.Info("Published Service Status")
+
 	lsMQTT.Disconnect()
 	c.StopDeviceUpdates()
 	c.StopClient()
