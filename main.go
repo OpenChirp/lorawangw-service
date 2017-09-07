@@ -112,10 +112,12 @@ func main() {
 			loraserverMQTTQoS = defaultLsQoS
 			loraserverMQTTUser = serviceID
 			loraserverMQTTPass = serviceToken
-			log.Info("Used loraserver's MQTT broker parameters from framework broker settings")
+			logitem := log.WithFields(log.Fields{"user": loraserverMQTTUser, "broker": loraserverMQTTBroker})
+			logitem.Info("Used loraserver's MQTT broker parameters from framework broker settings")
 		} else {
 			// Using all service properties parameters
-			log.Info("Used loraserver's MQTT broker parameters from service properties")
+			logitem := log.WithFields(log.Fields{"user": loraserverMQTTUser, "broker": loraserverMQTTBroker})
+			logitem.Info("Used loraserver's MQTT broker parameters from service properties")
 		}
 	} else {
 		// Using all commandline parameters
@@ -125,7 +127,8 @@ func main() {
 		if loraserverMQTTPass == defaultLsPass {
 			loraserverMQTTPass = ""
 		}
-		log.Info("Used loraserver's MQTT broker parameters from commandline")
+		logitem := log.WithFields(log.Fields{"user": loraserverMQTTUser, "broker": loraserverMQTTBroker})
+		logitem.Info("Used loraserver's MQTT broker parameters from commandline")
 	}
 
 	/* Start the loraserver interface MQTT client */
