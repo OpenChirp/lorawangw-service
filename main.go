@@ -84,7 +84,7 @@ func main() {
 
 	log.Info("Starting LoRaWAN Gateways Service")
 
-	c, err := framework.StartServiceClient(frameworkURI, brokerURI, serviceID, serviceToken)
+	c, err := framework.StartServiceClientStatus(frameworkURI, brokerURI, serviceID, serviceToken, "Unexpected disconnect!")
 	if err != nil {
 		log.Error("Failed to StartServiceClient: ", err)
 		return
