@@ -152,6 +152,10 @@ func main() {
 	/* Create the MQTT bridge manager */
 	mqttBridge := NewBridgeService(c, lsMQTT)
 
+	/* Create gateway id --> device id table */
+	gwidDevice := make(map[string]string)
+	deviceGwid := make(map[string]string)
+
 	log.Info("Starting Device Updates Stream")
 	updates, err := c.StartDeviceUpdates()
 	if err != nil {
@@ -187,10 +191,18 @@ func main() {
 			switch update.Type {
 			case framework.DeviceUpdateTypeRem:
 				logitem.Info("Removing links")
-				mqttBridge.RemoveLinksAll(update.Id)
+				if _, ok := deviceGwid[update.Id]; ok {
+					mqttBridge.RemoveLinksAll(update.Id)
+					delete(gwidDevice, deviceGwid[update.Id])
+					delete(deviceGwid, update.Id)
+				}
 			case framework.DeviceUpdateTypeUpd:
 				logitem.Info("Removing links for update")
-				mqttBridge.RemoveLinksAll(update.Id)
+				if _, ok := deviceGwid[update.Id]; ok {
+					mqttBridge.RemoveLinksAll(update.Id)
+					delete(gwidDevice, deviceGwid[update.Id])
+					delete(deviceGwid, update.Id)
+				}
 				fallthrough
 			case framework.DeviceUpdateTypeAdd:
 				logitem.Info("Adding links")
@@ -215,6 +227,15 @@ func main() {
 				}
 				/* Change case to lowercase */
 				gwid = strings.ToLower(gwid)
+
+				/* Check that the gateway id is not already mapped */
+				if devid, ok := gwidDevice[gwid]; ok {
+					logitem.Warn("Gateway ID \"", gwid, "\" already owned by device id ", devid)
+					c.SetDeviceStatus(update.Id, "Gateway ID already in use by device id ", devid)
+					continue
+				}
+				gwidDevice[gwid] = update.Id
+				deviceGwid[update.Id] = gwid
 
 				c.SetDeviceStatus(update.Id, "Linking as gateway ", gwid)
 				devTopic := "openchirp/devices/" + update.Id + "/transducer"
