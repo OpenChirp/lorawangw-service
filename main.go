@@ -17,6 +17,14 @@ import (
 )
 
 const (
+	// Set this value to true to have the service publish a service status of
+	// "Running" each time it receives a device update event
+	//
+	// This could be used as a service alive pulse if enabled
+	// Otherwise, the service status will indicate "Started" at the time the
+	// service "Started" the client
+	runningStatus = true
+
 	defaultFrameworkURI = "http://localhost:7000"
 	defaultBrokerURI    = "tls://localhost:1883"
 	defaultServiceID    = ""
@@ -158,6 +166,15 @@ func main() {
 	for {
 		select {
 		case update := <-updates:
+			if runningStatus {
+				err = c.SetStatus("Running")
+				if err != nil {
+					log.Error("Failed to publish service status: ", err)
+					return
+				}
+				log.Info("Published Service Status")
+			}
+
 			logitem := log.WithFields(log.Fields{"type": update.Type, "devid": update.Id, "gwid": update.Config[gatewayIdKey]})
 
 			switch update.Type {
