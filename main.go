@@ -89,6 +89,7 @@ func main() {
 		log.Error("Failed to StartServiceClient: ", err)
 		return
 	}
+	defer c.StopClient()
 	log.Info("Started LoRaWAN Gateways Service")
 
 	err = c.SetStatus("Starting")
@@ -148,6 +149,7 @@ func main() {
 		log.Error("Failed to start loraserver MQTT client: ", err)
 		return
 	}
+	defer lsMQTT.Disconnect()
 
 	/* Create the MQTT bridge manager */
 	mqttBridge := NewBridgeService(c, lsMQTT)
@@ -162,10 +164,11 @@ func main() {
 		log.Error("Failed to start device updates stream: ", err)
 		return
 	}
+	defer c.StopDeviceUpdates()
 
 	log.Info("Processing device updates")
 	signals := make(chan os.Signal)
-	signal.Notify(signals, syscall.SIGINT)
+	signal.Notify(signals, os.Interrupt, syscall.SIGTERM)
 
 	err = c.SetStatus("Started")
 	if err != nil {
@@ -262,8 +265,4 @@ cleanup:
 		return
 	}
 	log.Info("Published Service Status")
-
-	lsMQTT.Disconnect()
-	c.StopDeviceUpdates()
-	c.StopClient()
 }
