@@ -74,7 +74,7 @@ func (b *BridgeService) IsLinkRev(deviceid, topicb string) bool {
 	return false
 }
 
-func (b *BridgeService) AddLinkFwd(deviceid, topica, topicb string) error {
+func (b *BridgeService) AddLinkFwd(deviceid, topica string, topicb ...string) error {
 	ls, ok := b.devicelinks[deviceid]
 	if !ok {
 		ls = links{make([]string, 0), make([]string, 0)}
@@ -87,7 +87,13 @@ func (b *BridgeService) AddLinkFwd(deviceid, topica, topicb string) error {
 
 	// Subscribe
 	err := b.mqtta.Subscribe(topica, func(topic string, payload []byte) {
-		b.mqttb.Publish(topicb, payload)
+		for _, tb := range topicb {
+			b.log.Debugf("Received on %s and publishing to %s", topic, tb)
+			if err := b.mqttb.Publish(tb, payload); err != nil {
+				b.log.Errorf("Failed to publish to %s: %v", tb, err)
+			}
+		}
+
 	})
 	if err != nil {
 		return err
@@ -97,7 +103,7 @@ func (b *BridgeService) AddLinkFwd(deviceid, topica, topicb string) error {
 	return nil
 }
 
-func (b *BridgeService) AddLinkRev(deviceid, topica, topicb string) error {
+func (b *BridgeService) AddLinkRev(deviceid, topicb string, topica ...string) error {
 	ls, ok := b.devicelinks[deviceid]
 	if !ok {
 		ls = links{make([]string, 0), make([]string, 0)}
@@ -110,7 +116,13 @@ func (b *BridgeService) AddLinkRev(deviceid, topica, topicb string) error {
 
 	// Subscribe
 	err := b.mqttb.Subscribe(topicb, func(topic string, payload []byte) {
-		b.mqtta.Publish(topica, payload)
+		for _, ta := range topica {
+			b.log.Debugf("Received on %s and publishing to %v", topic, ta)
+			if err := b.mqtta.Publish(ta, payload); err != nil {
+				b.log.Errorf("Failed to publish to %s: %v", ta, err)
+			}
+		}
+
 	})
 	if err != nil {
 		return err
