@@ -12,8 +12,7 @@ import (
 	"syscall"
 
 	"github.com/openchirp/framework"
-
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -62,11 +61,9 @@ func isHexCharacters(id string) bool {
 	return true
 }
 
+
 /* Setup argument flags and help prompt */
 func init() {
-	/* Setup Logging */
-	log.SetOutput(os.Stderr)
-
 	/* Setup Arguments */
 	flag.StringVar(&frameworkURI, "framework", defaultFrameworkURI, "Sets the HTTP REST framework server URI")
 	flag.StringVar(&brokerURI, "broker", defaultBrokerURI, "Sets the MQTT broker URI associated with the framework server")
@@ -81,6 +78,10 @@ func init() {
 
 func main() {
 	flag.Parse()
+
+	/* Setup Logging */
+	log := logrus.New()
+	log.SetLevel(logrus.Level(5))
 
 	log.Info("Starting LoRaWAN Gateways Service")
 

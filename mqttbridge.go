@@ -1,5 +1,9 @@
 package main
 
+import (
+	"github.com/sirupsen/logrus"
+)
+
 type MQTT interface {
 	Subscribe(topic string, callback func(topic string, payload []byte)) error
 	Unsubscribe(topics ...string) error
@@ -9,6 +13,7 @@ type MQTT interface {
 type BridgeService struct {
 	mqtta, mqttb MQTT
 	devicelinks  map[string]links
+	log          *logrus.Logger
 }
 
 // The typical use case is to only append or overwrite a callback
@@ -28,11 +33,17 @@ func isIn(arr []string, str string) bool {
 	return false
 }
 
-func NewBridgeService(mqtta, mqttb MQTT) *BridgeService {
+func NewBridgeService(mqtta, mqttb MQTT, log *logrus.Logger) *BridgeService {
 	b := new(BridgeService)
 	b.mqtta = mqtta
 	b.mqttb = mqttb
 	b.devicelinks = make(map[string]links)
+	b.log = log
+	// disable logging
+	if log == nil {
+		b.log = logrus.New()
+		b.log.SetLevel(0)
+	}
 	return b
 }
 
