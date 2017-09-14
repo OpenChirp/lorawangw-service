@@ -5,7 +5,9 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
+	"fmt"
 	"os"
 	"os/signal"
 	"strings"
@@ -24,6 +26,11 @@ const (
 	// service "Started" the client
 	runningStatus = true
 
+	// Set this to true to allow gateways to interact in the
+	// <devid>/transducer/{tx, rx, stats} mqtt domain in addition to
+	// the <devid>/gateway/<gwid>/{tx, rx, stats} prefix domain
+	supportTransducerGateway = false
+
 	defaultFrameworkURI = "http://localhost:7000"
 	defaultBrokerURI    = "tls://localhost:1883"
 	defaultServiceID    = ""
@@ -39,6 +46,14 @@ const (
 	hexChars        = "0123456789abcdef"
 	gatewayIdKey    = "Gateway ID"
 	gatewayIdLength = len("D00D8BADF00D0001")
+)
+
+const (
+	topicLat       = "latitude"
+	topicLon       = "longitude"
+	topicAlt       = "altitude"
+	topicPktRecv   = "packets_received"
+	topicPktRecvOk = "packets_received_ok"
 )
 
 /* Options to be filled in by arguments */
@@ -61,6 +76,27 @@ func isHexCharacters(id string) bool {
 	return true
 }
 
+/*
+ {
+	 "mac":"d00d8badf00d0003",
+	 "time":"2017-09-11T02:16:14Z",
+	 "latitude":40.44127,
+	 "longitude":-79.94218,
+	 "altitude":317,
+	 "rxPacketsReceived":0,
+	 "rxPacketsReceivedOK":0
+	}
+*/
+
+type StatsPacket struct {
+	Mac          string  `json:"mac"`
+	Time         string  `json:"time"`
+	Latitude     float64 `json:"Latitude"`
+	Longitude    float64 `json:"Longitude"`
+	Altitude     int     `json:"altitude"`
+	RxReceived   uint    `json:"rxPacketsReceived"`
+	RxReceivedOk uint    `json:"rxPacketsReceivedOK"`
+}
 
 /* Setup argument flags and help prompt */
 func init() {
@@ -114,11 +150,11 @@ func main() {
 			loraserverMQTTQoS = defaultLsQoS
 			loraserverMQTTUser = serviceID
 			loraserverMQTTPass = serviceToken
-			logitem := log.WithFields(log.Fields{"user": loraserverMQTTUser, "broker": loraserverMQTTBroker})
+			logitem := log.WithFields(logrus.Fields{"user": loraserverMQTTUser, "broker": loraserverMQTTBroker})
 			logitem.Info("Used loraserver's MQTT broker parameters from framework broker settings")
 		} else {
 			// Using all service properties parameters
-			logitem := log.WithFields(log.Fields{"user": loraserverMQTTUser, "broker": loraserverMQTTBroker})
+			logitem := log.WithFields(logrus.Fields{"user": loraserverMQTTUser, "broker": loraserverMQTTBroker})
 			logitem.Info("Used loraserver's MQTT broker parameters from service properties")
 		}
 	} else {
@@ -129,7 +165,7 @@ func main() {
 		if loraserverMQTTPass == defaultLsPass {
 			loraserverMQTTPass = ""
 		}
-		logitem := log.WithFields(log.Fields{"user": loraserverMQTTUser, "broker": loraserverMQTTBroker})
+		logitem := log.WithFields(logrus.Fields{"user": loraserverMQTTUser, "broker": loraserverMQTTBroker})
 		logitem.Info("Used loraserver's MQTT broker parameters from commandline")
 	}
 	// Set QoS if not specified
@@ -153,7 +189,7 @@ func main() {
 	defer lsMQTT.Disconnect()
 
 	/* Create the MQTT bridge manager */
-	mqttBridge := NewBridgeService(c, lsMQTT)
+	mqttBridge := NewBridgeService(c, lsMQTT, log)
 
 	/* Create gateway id --> device id table */
 	gwidDevice := make(map[string]string)
@@ -190,19 +226,31 @@ func main() {
 				log.Info("Published Service Status")
 			}
 
-			logitem := log.WithFields(log.Fields{"type": update.Type, "devid": update.Id, "gwid": update.Config[gatewayIdKey]})
+			logitem := log.WithFields(logrus.Fields{"type": update.Type, "devid": update.Id, "gwid": update.Config[gatewayIdKey]})
 
 			switch update.Type {
 			case framework.DeviceUpdateTypeRem:
 				logitem.Info("Removing links")
-				if _, ok := deviceGwid[update.Id]; ok {
+				if gwid, ok := deviceGwid[update.Id]; ok {
+					devTopic := "openchirp/devices/" + update.Id + "/transducer"
+					devGwTopic := "openchirp/devices/" + update.Id + "/gateway/" + gwid
+					c.Unsubscribe(devGwTopic + "/stats")
+					if supportTransducerGateway {
+						c.Unsubscribe(devTopic + "/stats")
+					}
 					mqttBridge.RemoveLinksAll(update.Id)
 					delete(gwidDevice, deviceGwid[update.Id])
 					delete(deviceGwid, update.Id)
 				}
 			case framework.DeviceUpdateTypeUpd:
 				logitem.Info("Removing links for update")
-				if _, ok := deviceGwid[update.Id]; ok {
+				if gwid, ok := deviceGwid[update.Id]; ok {
+					devTopic := "openchirp/devices/" + update.Id + "/transducer"
+					devGwTopic := "openchirp/devices/" + update.Id + "/gateway/" + gwid
+					c.Unsubscribe(devGwTopic + "/stats")
+					if supportTransducerGateway {
+						c.Unsubscribe(devTopic + "/stats")
+					}
 					mqttBridge.RemoveLinksAll(update.Id)
 					delete(gwidDevice, deviceGwid[update.Id])
 					delete(deviceGwid, update.Id)
@@ -243,14 +291,131 @@ func main() {
 
 				c.SetDeviceStatus(update.Id, "Linking as gateway ", gwid)
 				devTopic := "openchirp/devices/" + update.Id + "/transducer"
+				devGwTopic := "openchirp/devices/" + update.Id + "/gateway/" + gwid
 				lsTopic := "gateway/" + gwid
-				logitem.Infof("Adding link %s --> %s", devTopic+"/rx", lsTopic+"/rx")
-				mqttBridge.AddLinkFwd(update.Id, devTopic+"/rx", lsTopic+"/rx")
-				logitem.Infof("Adding link %s --> %s", devTopic+"/status", lsTopic+"/status")
-				mqttBridge.AddLinkFwd(update.Id, devTopic+"/stats", lsTopic+"/stats")
-				logitem.Infof("Adding link %s <-- %s", devTopic+"/tx", lsTopic+"/tx")
-				mqttBridge.AddLinkRev(update.Id, devTopic+"/tx", lsTopic+"/tx")
-				c.SetDeviceStatus(update.Id, "Linked as gateway ", gwid)
+
+				reportDeviceStatus := func(e error) {
+					if e != nil {
+						c.SetDeviceStatus(update.Id, "Error linking as \"%s\": %v", gwid, e)
+					} else {
+						c.SetDeviceStatus(update.Id, "Linked as gateway ", gwid)
+					}
+				}
+
+				if supportTransducerGateway {
+					logitem.Debugf("Adding link %s --> %s", devTopic+"/rx", lsTopic+"/rx")
+					err = mqttBridge.AddLinkFwd(update.Id, devTopic+"/rx", lsTopic+"/rx")
+					if err != nil {
+						logitem.Error("Failed to link: ", err)
+						reportDeviceStatus(err)
+						mqttBridge.RemoveLinksAll(update.Id)
+						continue
+					}
+				}
+				logitem.Debugf("Adding link %s --> %s", devGwTopic+"/rx", lsTopic+"/rx")
+				err = mqttBridge.AddLinkFwd(update.Id, devGwTopic+"/rx", lsTopic+"/rx")
+				if err != nil {
+					logitem.Error("Failed to link: ", err)
+					reportDeviceStatus(err)
+					mqttBridge.RemoveLinksAll(update.Id)
+					continue
+				}
+
+				// logitem.Debugf("Adding link %s --> %s", devTopic+"/stats", lsTopic+"/stats")
+				// err = mqttBridge.AddLinkFwd(update.Id, devTopic+"/stats", lsTopic+"/stats")
+				// if err != nil {
+				// 	logitem.Error("Failed to link: ", err)
+				// 	reportDeviceStatus(err)
+				// 	mqttBridge.RemoveLinksAll(update.Id)
+				// 	continue
+				// }
+				// logitem.Debugf("Adding link %s --> %s", devGwTopic+"/stats", lsTopic+"/stats")
+				// err = mqttBridge.AddLinkFwd(update.Id, devGwTopic+"/stats", lsTopic+"/stats")
+				// if err != nil {
+				// 	logitem.Error("Failed to link: ", err)
+				// 	reportDeviceStatus(err)
+				// 	mqttBridge.RemoveLinksAll(update.Id)
+				// 	continue
+				// }
+
+				if supportTransducerGateway {
+					logitem.Debugf("Adding link %s --> %s, %s", lsTopic+"/tx", devTopic+"/tx", devGwTopic+"/tx")
+					err = mqttBridge.AddLinkRev(update.Id, lsTopic+"/tx", devTopic+"/tx", devGwTopic+"/tx")
+					if err != nil {
+						logitem.Error("Failed to link: ", err)
+						reportDeviceStatus(err)
+						mqttBridge.RemoveLinksAll(update.Id)
+						continue
+					}
+				} else {
+					logitem.Debugf("Adding link %s --> %s", lsTopic+"/tx", devGwTopic+"/tx")
+					err = mqttBridge.AddLinkRev(update.Id, lsTopic+"/tx", devGwTopic+"/tx")
+					if err != nil {
+						logitem.Error("Failed to link: ", err)
+						reportDeviceStatus(err)
+						mqttBridge.RemoveLinksAll(update.Id)
+						continue
+					}
+				}
+
+				processStats := func(topic string, payload []byte) {
+					var stats StatsPacket
+					// forward first
+					err := lsMQTT.Publish(lsTopic+"/stats", payload)
+					if err != nil {
+						logitem.Warnf("Failed forward stats to %s", lsTopic+"/stats")
+					}
+
+					// then parse
+					err = json.Unmarshal(payload, &stats)
+					if err != nil {
+						logitem.Warnf("Failed to Unmarshal stats JSON")
+						return
+					}
+					logitem.Debug("Received stats: ", stats)
+
+					err = c.Publish(devTopic+"/"+topicLat, fmt.Sprint(stats.Latitude))
+					if err != nil {
+						logitem.Error("Failed to publish %s for deviceid", topicLat, update.Id)
+					}
+					err = c.Publish(devTopic+"/"+topicLon, fmt.Sprint(stats.Longitude))
+					if err != nil {
+						logitem.Error("Failed to publish %s for deviceid", topicLon, update.Id)
+					}
+					err = c.Publish(devTopic+"/"+topicAlt, fmt.Sprint(stats.Altitude))
+					if err != nil {
+						logitem.Error("Failed to publish %s for deviceid", topicAlt, update.Id)
+					}
+					err = c.Publish(devTopic+"/"+topicPktRecv, fmt.Sprint(stats.RxReceived))
+					if err != nil {
+						logitem.Error("Failed to publish %s for deviceid", topicPktRecv, update.Id)
+					}
+					err = c.Publish(devTopic+"/"+topicPktRecvOk, fmt.Sprint(stats.RxReceivedOk))
+					if err != nil {
+						logitem.Error("Failed to publish %s for deviceid", topicPktRecvOk, update.Id)
+					}
+				}
+
+				if supportTransducerGateway {
+					logitem.Debugf("Adding processor for %s", devTopic+"/stats")
+					err = c.Subscribe(devTopic+"/stats", processStats)
+					if err != nil {
+						logitem.Error("Failed to link to device status topic: ", err)
+						reportDeviceStatus(err)
+						mqttBridge.RemoveLinksAll(update.Id)
+						continue
+					}
+				}
+				logitem.Debugf("Adding processor for %s", devGwTopic+"/stats")
+				err = c.Subscribe(devGwTopic+"/stats", processStats)
+				if err != nil {
+					logitem.Error("Failed to link to device status topic: ", err)
+					reportDeviceStatus(err)
+					mqttBridge.RemoveLinksAll(update.Id)
+					continue
+				}
+
+				reportDeviceStatus(nil)
 			}
 		case <-signals:
 			goto cleanup
