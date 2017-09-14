@@ -1,4 +1,4 @@
-# lorawangwservice
+# lorawangw-service
 LoRaWAN Gateway Service for OpenChirp
 
 This service's role is to support LoRaWAN gateways as Devices in the OpenChirp
