@@ -302,6 +302,7 @@ func main() {
 					}
 				}
 
+				/* Add rx stream */
 				if supportTransducerGateway {
 					logitem.Debugf("Adding link %s --> %s", devTopic+"/rx", lsTopic+"/rx")
 					err = mqttBridge.AddLinkFwd(update.Id, devTopic+"/rx", lsTopic+"/rx")
@@ -321,23 +322,7 @@ func main() {
 					continue
 				}
 
-				// logitem.Debugf("Adding link %s --> %s", devTopic+"/stats", lsTopic+"/stats")
-				// err = mqttBridge.AddLinkFwd(update.Id, devTopic+"/stats", lsTopic+"/stats")
-				// if err != nil {
-				// 	logitem.Error("Failed to link: ", err)
-				// 	reportDeviceStatus(err)
-				// 	mqttBridge.RemoveLinksAll(update.Id)
-				// 	continue
-				// }
-				// logitem.Debugf("Adding link %s --> %s", devGwTopic+"/stats", lsTopic+"/stats")
-				// err = mqttBridge.AddLinkFwd(update.Id, devGwTopic+"/stats", lsTopic+"/stats")
-				// if err != nil {
-				// 	logitem.Error("Failed to link: ", err)
-				// 	reportDeviceStatus(err)
-				// 	mqttBridge.RemoveLinksAll(update.Id)
-				// 	continue
-				// }
-
+				/* Add return tx stream */
 				if supportTransducerGateway {
 					logitem.Debugf("Adding link %s --> %s, %s", lsTopic+"/tx", devTopic+"/tx", devGwTopic+"/tx")
 					err = mqttBridge.AddLinkRev(update.Id, lsTopic+"/tx", devTopic+"/tx", devGwTopic+"/tx")
@@ -396,6 +381,7 @@ func main() {
 					}
 				}
 
+				/* Add stats streams */
 				if supportTransducerGateway {
 					logitem.Debugf("Adding processor for %s", devTopic+"/stats")
 					err = c.Subscribe(devTopic+"/stats", processStats)
