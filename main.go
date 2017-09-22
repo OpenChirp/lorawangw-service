@@ -196,7 +196,7 @@ func main() {
 	deviceGwid := make(map[string]string)
 
 	log.Info("Starting Device Updates Stream")
-	updates, err := c.StartDeviceUpdates()
+	updates, err := c.StartDeviceUpdatesSimple()
 	if err != nil {
 		log.Error("Failed to start device updates stream: ", err)
 		return
@@ -229,6 +229,8 @@ func main() {
 			logitem := log.WithFields(logrus.Fields{"type": update.Type, "devid": update.Id, "gwid": update.Config[gatewayIdKey]})
 
 			switch update.Type {
+			case framework.DeviceUpdateTypeErr:
+				log.Errorf("Event Error: %v", error(update))
 			case framework.DeviceUpdateTypeRem:
 				logitem.Info("Removing links")
 				if gwid, ok := deviceGwid[update.Id]; ok {
