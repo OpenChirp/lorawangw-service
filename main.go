@@ -347,39 +347,41 @@ func main() {
 
 				processStats := func(topic string, payload []byte) {
 					var stats StatsPacket
+					loglocal := log.WithFields(logrus.Fields{"devid": devid, "gwid": gwid, "pkt": "stat"})
+
 					// forward first
 					err := lsMQTT.Publish(lsTopic+"/stats", payload)
 					if err != nil {
-						logitem.Warnf("Failed forward stats to %s", lsTopic+"/stats")
+						loglocal.Warnf("Failed forward stats to %s", lsTopic+"/stats")
 					}
 
 					// then parse
 					err = json.Unmarshal(payload, &stats)
 					if err != nil {
-						logitem.Warnf("Failed to Unmarshal stats JSON")
+						loglocal.Warnf("Failed to Unmarshal stats JSON")
 						return
 					}
-					logitem.Debug("Received stats: ", stats)
+					loglocal.Debug("Received stats: ", stats)
 
 					err = c.Publish(devTopic+"/"+topicLat, fmt.Sprint(stats.Latitude))
 					if err != nil {
-						logitem.Error("Failed to publish %s for deviceid", topicLat, update.Id)
+						loglocal.Errorf("Failed to publish %s for deviceid %s", topicLat, devid)
 					}
 					err = c.Publish(devTopic+"/"+topicLon, fmt.Sprint(stats.Longitude))
 					if err != nil {
-						logitem.Error("Failed to publish %s for deviceid", topicLon, update.Id)
+						loglocal.Errorf("Failed to publish %s for deviceid %s", topicLon, devid)
 					}
 					err = c.Publish(devTopic+"/"+topicAlt, fmt.Sprint(stats.Altitude))
 					if err != nil {
-						logitem.Error("Failed to publish %s for deviceid", topicAlt, update.Id)
+						loglocal.Errorf("Failed to publish %s for deviceid %s", topicAlt, devid)
 					}
 					err = c.Publish(devTopic+"/"+topicPktRecv, fmt.Sprint(stats.RxReceived))
 					if err != nil {
-						logitem.Error("Failed to publish %s for deviceid", topicPktRecv, update.Id)
+						loglocal.Errorf("Failed to publish %s for deviceid %s", topicPktRecv, devid)
 					}
 					err = c.Publish(devTopic+"/"+topicPktRecvOk, fmt.Sprint(stats.RxReceivedOk))
 					if err != nil {
-						logitem.Error("Failed to publish %s for deviceid", topicPktRecvOk, update.Id)
+						loglocal.Errorf("Failed to publish %s for deviceid %s", topicPktRecvOk, devid)
 					}
 				}
 
