@@ -13,6 +13,7 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/brocaar/loraserver/models"
 	"github.com/openchirp/framework"
 	"github.com/sirupsen/logrus"
 )
@@ -30,6 +31,10 @@ const (
 	// <devid>/transducer/{tx, rx, stats} mqtt domain in addition to
 	// the <devid>/gateway/<gwid>/{tx, rx, stats} prefix domain
 	supportTransducerGateway = false
+
+	// Set this to true to have the service decode RX packets and publish
+	// on packets it receives
+	supportRXPacketStats = true
 
 	defaultFrameworkURI = "http://localhost:7000"
 	defaultBrokerURI    = "tls://localhost:1883"
@@ -54,6 +59,15 @@ const (
 	topicAlt       = "altitude"
 	topicPktRecv   = "packets_received"
 	topicPktRecvOk = "packets_received_ok"
+)
+
+const (
+	topicFrequency       = "rx_frequency"
+	topicRSSI            = "rx_rssi"
+	topicLoRaSNR         = "rx_lorasnr"
+	topicSpreadingFactor = "rx_spreadingfactor"
+	topicBandwidth       = "rx_bandwidth"
+	topicDevAddr         = "rx_devaddr"
 )
 
 /* Options to be filled in by arguments */
@@ -304,26 +318,6 @@ func main() {
 					}
 				}
 
-				/* Add rx stream */
-				if supportTransducerGateway {
-					logitem.Debugf("Adding link %s --> %s", devTopic+"/rx", lsTopic+"/rx")
-					err = mqttBridge.AddLinkFwd(update.Id, devTopic+"/rx", lsTopic+"/rx")
-					if err != nil {
-						logitem.Error("Failed to link: ", err)
-						reportDeviceStatus(err)
-						mqttBridge.RemoveLinksAll(update.Id)
-						continue
-					}
-				}
-				logitem.Debugf("Adding link %s --> %s", devGwTopic+"/rx", lsTopic+"/rx")
-				err = mqttBridge.AddLinkFwd(update.Id, devGwTopic+"/rx", lsTopic+"/rx")
-				if err != nil {
-					logitem.Error("Failed to link: ", err)
-					reportDeviceStatus(err)
-					mqttBridge.RemoveLinksAll(update.Id)
-					continue
-				}
-
 				/* Add return tx stream */
 				if supportTransducerGateway {
 					logitem.Debugf("Adding link %s --> %s, %s", lsTopic+"/tx", devTopic+"/tx", devGwTopic+"/tx")
@@ -345,8 +339,54 @@ func main() {
 					}
 				}
 
+				devid := update.Id
+
+				processRx := func(topic string, payload []byte) {
+					loglocal := log.WithFields(logrus.Fields{"devid": devid, "gwid": gwid, "pkt": "rx"})
+
+					// forward first
+					err := lsMQTT.Publish(lsTopic+"/rx", payload)
+					if err != nil {
+						loglocal.Warnf("Failed forward rx to %s", lsTopic+"/rx")
+					}
+
+					// then parse
+					if supportRXPacketStats {
+						var rx models.RXPacket
+						err = json.Unmarshal(payload, &rx)
+						if err != nil {
+							loglocal.Warnf("Failed to Unmarshal rx JSON")
+							return
+						}
+						loglocal.Debug("Received rx: ", rx)
+
+						err = c.Publish(devTopic+"/"+topicFrequency, fmt.Sprint(rx.RXInfo.Frequency))
+						if err != nil {
+							loglocal.Errorf("Failed to publish %s for deviceid %s", topicLat, devid)
+						}
+						err = c.Publish(devTopic+"/"+topicRSSI, fmt.Sprint(rx.RXInfo.RSSI))
+						if err != nil {
+							loglocal.Errorf("Failed to publish %s for deviceid %s", topicRSSI, devid)
+						}
+						err = c.Publish(devTopic+"/"+topicLoRaSNR, fmt.Sprint(rx.RXInfo.LoRaSNR))
+						if err != nil {
+							loglocal.Errorf("Failed to publish %s for deviceid %s", topicLoRaSNR, devid)
+						}
+						err = c.Publish(devTopic+"/"+topicSpreadingFactor, fmt.Sprint(rx.RXInfo.DataRate.SpreadFactor))
+						if err != nil {
+							loglocal.Errorf("Failed to publish %s for deviceid %s", topicSpreadingFactor, devid)
+						}
+						err = c.Publish(devTopic+"/"+topicBandwidth, fmt.Sprint(rx.RXInfo.DataRate.Bandwidth))
+						if err != nil {
+							loglocal.Errorf("Failed to publish %s for deviceid %s", topicBandwidth, devid)
+						}
+
+					}
+				}
+
 				processStats := func(topic string, payload []byte) {
 					var stats StatsPacket
+
 					loglocal := log.WithFields(logrus.Fields{"devid": devid, "gwid": gwid, "pkt": "stat"})
 
 					// forward first
@@ -383,6 +423,26 @@ func main() {
 					if err != nil {
 						loglocal.Errorf("Failed to publish %s for deviceid %s", topicPktRecvOk, devid)
 					}
+				}
+
+				/* Add rx streams */
+				if supportTransducerGateway {
+					logitem.Debugf("Adding processor for %s", devTopic+"/rx")
+					err = c.Subscribe(devTopic+"/rx", processRx)
+					if err != nil {
+						logitem.Error("Failed to link to device rx topic: ", err)
+						reportDeviceStatus(err)
+						mqttBridge.RemoveLinksAll(update.Id)
+						continue
+					}
+				}
+				logitem.Debugf("Adding processor for %s", devGwTopic+"/rx")
+				err = c.Subscribe(devGwTopic+"/rx", processRx)
+				if err != nil {
+					logitem.Error("Failed to link to device rx topic: ", err)
+					reportDeviceStatus(err)
+					mqttBridge.RemoveLinksAll(update.Id)
+					continue
 				}
 
 				/* Add stats streams */
