@@ -254,6 +254,10 @@ func main() {
 					if supportTransducerGateway {
 						c.Unsubscribe(devTopic + "/stats")
 					}
+					c.Unsubscribe(devGwTopic + "/rx")
+					if supportTransducerGateway {
+						c.Unsubscribe(devTopic + "/rx")
+					}
 					mqttBridge.RemoveLinksAll(update.Id)
 					delete(gwidDevice, deviceGwid[update.Id])
 					delete(deviceGwid, update.Id)
@@ -266,6 +270,10 @@ func main() {
 					c.Unsubscribe(devGwTopic + "/stats")
 					if supportTransducerGateway {
 						c.Unsubscribe(devTopic + "/stats")
+					}
+					c.Unsubscribe(devGwTopic + "/rx")
+					if supportTransducerGateway {
+						c.Unsubscribe(devTopic + "/rx")
 					}
 					mqttBridge.RemoveLinksAll(update.Id)
 					delete(gwidDevice, deviceGwid[update.Id])
