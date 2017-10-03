@@ -1,0 +1,37 @@
+{
+	"comment": "",
+	"ignore": "test",
+	"package": [
+		{
+			"checksumSHA1": "4OcdP6nOPOb5xnSabW5i66OodyQ=",
+			"path": "github.com/brocaar/loraserver/models",
+			"revision": "ab842a7785977f84f2d3969e2a16d1145c263c76",
+			"revisionTime": "2016-08-19T19:00:46Z"
+		},
+		{
+			"checksumSHA1": "he6U+ANcoXKilCk8LlDweHzWohY=",
+			"path": "github.com/brocaar/lorawan",
+			"revision": "493811893ace2e3e4db4bb8e402ce28b72a04198",
+			"revisionTime": "2017-09-12T08:35:35Z"
+		},
+		{
+			"checksumSHA1": "HglcYT/tCUHsT4cJtaa62vM55Dc=",
+			"path": "github.com/brocaar/lorawan/band",
+			"revision": "493811893ace2e3e4db4bb8e402ce28b72a04198",
+			"revisionTime": "2017-09-12T08:35:35Z"
+		},
+		{
+			"checksumSHA1": "7PLlrIaGI1TKWB96RkizgkTtOtQ=",
+			"path": "github.com/jacobsa/crypto/cmac",
+			"revision": "293ce0c192fb4f59cd879b46544922b9ed09a13a",
+			"revisionTime": "2016-11-11T03:08:13Z"
+		},
+		{
+			"checksumSHA1": "NBvtX91AEKxFLmj8mwwhXEKl6d0=",
+			"path": "github.com/jacobsa/crypto/common",
+			"revision": "293ce0c192fb4f59cd879b46544922b9ed09a13a",
+			"revisionTime": "2016-11-11T03:08:13Z"
+		}
+	],
+	"rootPath": "github.com/openchirp/lorawangw-service"
+}
