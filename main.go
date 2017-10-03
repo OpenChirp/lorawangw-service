@@ -5,6 +5,7 @@
 package main
 
 import (
+	"encoding/binary"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -14,6 +15,7 @@ import (
 	"syscall"
 
 	"github.com/brocaar/loraserver/models"
+	"github.com/brocaar/lorawan"
 	"github.com/openchirp/framework"
 	"github.com/sirupsen/logrus"
 )
@@ -68,6 +70,7 @@ const (
 	topicSpreadingFactor = "rx_spreadingfactor"
 	topicBandwidth       = "rx_bandwidth"
 	topicDevAddr         = "rx_devaddr"
+	topicNetworkID       = "rx_networkid"
 )
 
 /* Options to be filled in by arguments */
@@ -387,6 +390,25 @@ func main() {
 						err = c.Publish(devTopic+"/"+topicBandwidth, fmt.Sprint(rx.RXInfo.DataRate.Bandwidth))
 						if err != nil {
 							loglocal.Errorf("Failed to publish %s for deviceid %s", topicBandwidth, devid)
+						}
+
+						if rx.PHYPayload.MHDR.MType == lorawan.UnconfirmedDataUp ||
+							rx.PHYPayload.MHDR.MType == lorawan.ConfirmedDataUp {
+							devAddrBuf, _ := rx.PHYPayload.MACPayload.(*lorawan.MACPayload).FHDR.DevAddr.MarshalBinary()
+							devAddrBuf[3] = devAddrBuf[3] & 0x01
+							devAddr := binary.LittleEndian.Uint32(devAddrBuf)
+
+							nwkID := rx.PHYPayload.MACPayload.(*lorawan.MACPayload).FHDR.DevAddr.NwkID()
+
+							err = c.Publish(devTopic+"/"+topicNetworkID, fmt.Sprint(uint(nwkID)))
+							if err != nil {
+								loglocal.Errorf("Failed to publish %s for deviceid %s", topicNetworkID, devid)
+							}
+
+							err = c.Publish(devTopic+"/"+topicDevAddr, fmt.Sprint(devAddr))
+							if err != nil {
+								loglocal.Errorf("Failed to publish %s for deviceid %s", topicDevAddr, devid)
+							}
 						}
 
 					}
