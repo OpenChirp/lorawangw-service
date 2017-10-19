@@ -71,6 +71,7 @@ const (
 	topicBandwidth       = "rx_bandwidth"
 	topicDevAddr         = "rx_devaddr"
 	topicNetworkID       = "rx_networkid"
+	topicCRCStatus       = "rx_crcstatus"
 )
 
 /* Options to be filled in by arguments */
@@ -371,6 +372,10 @@ func main() {
 						}
 						loglocal.Debug("Received rx: ", rx)
 
+						err = c.Publish(devTopic+"/"+topicCRCStatus, fmt.Sprint(rx.RXInfo.CRCStatus))
+						if err != nil {
+							loglocal.Errorf("Failed to publish %s for deviceid %s", topicCRCStatus, devid)
+						}
 						err = c.Publish(devTopic+"/"+topicFrequency, fmt.Sprint(rx.RXInfo.Frequency))
 						if err != nil {
 							loglocal.Errorf("Failed to publish %s for deviceid %s", topicLat, devid)
