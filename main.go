@@ -395,7 +395,7 @@ func main() {
 						if rx.PHYPayload.MHDR.MType == lorawan.UnconfirmedDataUp ||
 							rx.PHYPayload.MHDR.MType == lorawan.ConfirmedDataUp {
 							devAddrBuf, _ := rx.PHYPayload.MACPayload.(*lorawan.MACPayload).FHDR.DevAddr.MarshalBinary()
-							devAddrBuf[3] = devAddrBuf[3] & 0x01
+							// devAddrBuf[3] = devAddrBuf[3] & 0x01
 							devAddr := binary.LittleEndian.Uint32(devAddrBuf)
 
 							nwkID := rx.PHYPayload.MACPayload.(*lorawan.MACPayload).FHDR.DevAddr.NwkID()
