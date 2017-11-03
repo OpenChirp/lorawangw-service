@@ -28,3 +28,6 @@ The target loraserver MQTT broker can have it's MQTT parameters set in a few dif
 * Setting them on the commandline will bypass all other methods. Use `-lsbroker`, `-lsqos`, `-lsuser`, `-lspass` to set them on the commandline.
 * If the broker settings are not present on the commandline, the service will try to acquire them from the OpenChirp service properties set through the website. It will look for `MQTTBroker`, `MQTTQoS`, `MQTTUser`, and `MQTTPas` properties.
 * If both the previous methods did not resolve the broker settings, the service will simply use the framework's MQTT parameters.
+
+## Developement
+This project uses `govendor` for Go vendoring.
