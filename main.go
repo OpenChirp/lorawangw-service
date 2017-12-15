@@ -354,12 +354,12 @@ func main() {
 
 					// forward first
 					if supportTransducerGateway {
-						err := lsMQTT.Publish(devTopic+"/tx", payload)
+						err := c.Publish(devTopic+"/tx", payload)
 						if err != nil {
 							loglocal.Warnf("Failed forward tx to %s", devTopic+"/tx")
 						}
 					}
-					err := lsMQTT.Publish(devGwTopic+"/tx", payload)
+					err := c.Publish(devGwTopic+"/tx", payload)
 					if err != nil {
 						loglocal.Warnf("Failed forward tx to %s", devGwTopic+"/tx")
 					}
@@ -518,7 +518,7 @@ func main() {
 
 				/* Add tx streams */
 				logitem.Debugf("Adding processor for %s", lsTopic+"/tx")
-				err = c.Subscribe(lsTopic+"/tx", processTx)
+				err = lsMQTT.Subscribe(lsTopic+"/tx", processTx)
 				if err != nil {
 					logitem.Error("Failed to link to device tx topic: ", err)
 					reportDeviceStatus(err)
