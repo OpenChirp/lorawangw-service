@@ -378,7 +378,7 @@ func main() {
 						}
 						err = c.Publish(devTopic+"/"+topicFrequency, fmt.Sprint(rx.RXInfo.Frequency))
 						if err != nil {
-							loglocal.Errorf("Failed to publish %s for deviceid %s", topicLat, devid)
+							loglocal.Errorf("Failed to publish %s for deviceid %s", topicFrequency, devid)
 						}
 						err = c.Publish(devTopic+"/"+topicRSSI, fmt.Sprint(rx.RXInfo.RSSI))
 						if err != nil {
