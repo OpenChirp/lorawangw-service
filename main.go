@@ -76,6 +76,7 @@ const (
 	topicDevAddr         = "rx_devaddr"
 	topicNetworkID       = "rx_networkid"
 	topicCRCStatus       = "rx_crcstatus"
+	topicTimestamp       = "rx_timestamp"
 )
 
 const (
@@ -446,6 +447,10 @@ func main() {
 						err = c.Publish(devTopic+"/"+topicBandwidth, fmt.Sprint(rx.RXInfo.DataRate.Bandwidth))
 						if err != nil {
 							loglocal.Errorf("Failed to publish %s for deviceid %s", topicBandwidth, devid)
+						}
+						err = c.Publish(devTopic+"/"+topicTimestamp, fmt.Sprint(rx.RXInfo.Timestamp))
+						if err != nil {
+							loglocal.Errorf("Failed to publish %s for deviceid %s", topicTimestamp, devid)
 						}
 
 						if rx.PHYPayload.MHDR.MType == lorawan.UnconfirmedDataUp ||
