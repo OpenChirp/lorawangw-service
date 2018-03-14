@@ -31,6 +31,18 @@
 			"path": "github.com/jacobsa/crypto/common",
 			"revision": "293ce0c192fb4f59cd879b46544922b9ed09a13a",
 			"revisionTime": "2016-11-11T03:08:13Z"
+		},
+		{
+			"checksumSHA1": "IesX9bTXvGj3SBz2tlgBXaYVQ60=",
+			"path": "github.com/openchirp/framework",
+			"revision": "9e242671b27174225f08ef424752c9d7bc098177",
+			"revisionTime": "2018-03-13T22:09:56Z"
+		},
+		{
+			"checksumSHA1": "nVtump/daJuub+r8NQQ3d9ZUXXw=",
+			"path": "github.com/openchirp/framework/rest",
+			"revision": "9e242671b27174225f08ef424752c9d7bc098177",
+			"revisionTime": "2018-03-13T22:09:56Z"
 		}
 	],
 	"rootPath": "github.com/openchirp/lorawangw-service"
