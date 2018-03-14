@@ -154,7 +154,7 @@ func main() {
 	}
 	log.Info("Published Service Status")
 
-	/* Hunt dow the loraserver MQTT parameters */
+	/* Hunt down the loraserver MQTT parameters */
 	if loraserverMQTTBroker == defaultLsBroker {
 		// Try setting loraserverMQTT parameters from service properties
 		loraserverMQTTBroker = c.GetProperty("MQTTBroker")
