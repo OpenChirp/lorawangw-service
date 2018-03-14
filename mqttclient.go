@@ -72,7 +72,14 @@ func NewMQTTClient(brokeruri, user, pass string, defaultQoS MQTTQoS, defaultPers
 
 	/* Connect the MQTT connection */
 	opts := PahoMQTT.NewClientOptions().AddBroker(brokeruri)
-	opts.SetClientID(clinetid).SetUsername(user).SetPassword(pass)
+	opts.SetClientID(clinetid)
+	// http://www.hivemq.com/blog/mqtt-security-fundamentals-authentication-username-password:
+	//   "The spec also states that a username without password is possible.
+	//    It’s not possible to just send a password without username."
+	if len(user) > 0 {
+		// we do not allow absent passwords yet
+		opts.SetUsername(user).SetPassword(pass)
+	}
 	opts.SetAutoReconnect(defaultAutoReconnect)
 
 	/* Create and start a client using the above ClientOptions */
