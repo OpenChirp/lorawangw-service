@@ -265,8 +265,8 @@ func main() {
 			case framework.DeviceUpdateTypeRem:
 				logitem.Info("Removing links")
 				if gwid, ok := deviceGwid[update.Id]; ok {
-					devTopic := "openchirp/devices/" + update.Id + "/transducer"
-					devGwTopic := "openchirp/devices/" + update.Id + "/gateway/" + gwid
+					devTopic := update.Topic + "/" + framework.TransducerPrefix
+					devGwTopic := update.Topic + "/gateway/" + gwid
 					c.Unsubscribe(devGwTopic + "/stats")
 					if supportTransducerGateway {
 						c.Unsubscribe(devTopic + "/stats")
@@ -282,8 +282,8 @@ func main() {
 			case framework.DeviceUpdateTypeUpd:
 				logitem.Info("Removing links for update")
 				if gwid, ok := deviceGwid[update.Id]; ok {
-					devTopic := "openchirp/devices/" + update.Id + "/transducer"
-					devGwTopic := "openchirp/devices/" + update.Id + "/gateway/" + gwid
+					devTopic := update.Topic + "/" + framework.TransducerPrefix
+					devGwTopic := update.Topic + "/gateway/" + gwid
 					c.Unsubscribe(devGwTopic + "/stats")
 					if supportTransducerGateway {
 						c.Unsubscribe(devTopic + "/stats")
@@ -333,9 +333,9 @@ func main() {
 				c.SetDeviceStatus(update.Id, "Linking as gateway ", gwid)
 
 				// OC Device Transducer Gateway Topic
-				devTopic := "openchirp/devices/" + update.Id + "/transducer"
+				devTopic := update.Topic + "/" + framework.TransducerPrefix
 				// OC Device Root Gateway Topic
-				devGwTopic := "openchirp/devices/" + update.Id + "/gateway/" + gwid
+				devGwTopic := update.Topic + "/gateway/" + gwid
 				// Lora Server Gateway Topic
 				lsTopic := "gateway/" + gwid
 
