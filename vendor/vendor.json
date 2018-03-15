@@ -35,14 +35,14 @@
 		{
 			"checksumSHA1": "IesX9bTXvGj3SBz2tlgBXaYVQ60=",
 			"path": "github.com/openchirp/framework",
-			"revision": "9e242671b27174225f08ef424752c9d7bc098177",
-			"revisionTime": "2018-03-13T22:09:56Z"
+			"revision": "9dcedd3c0fc9b12bd54e83baa2698b6133a745c7",
+			"revisionTime": "2018-03-15T00:41:32Z"
 		},
 		{
-			"checksumSHA1": "nVtump/daJuub+r8NQQ3d9ZUXXw=",
+			"checksumSHA1": "VytE+8F+3Rqt+KZa0PNlaFOOV2U=",
 			"path": "github.com/openchirp/framework/rest",
-			"revision": "9e242671b27174225f08ef424752c9d7bc098177",
-			"revisionTime": "2018-03-13T22:09:56Z"
+			"revision": "9dcedd3c0fc9b12bd54e83baa2698b6133a745c7",
+			"revisionTime": "2018-03-15T00:41:32Z"
 		}
 	],
 	"rootPath": "github.com/openchirp/lorawangw-service"
