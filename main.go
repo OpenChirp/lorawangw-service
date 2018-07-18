@@ -265,7 +265,7 @@ func main() {
 			case framework.DeviceUpdateTypeRem:
 				logitem.Info("Removing links")
 				if gwid, ok := deviceGwid[update.Id]; ok {
-					devTopic := update.Topic + "/" + framework.TransducerPrefix
+					devTopic := update.Topic
 					devGwTopic := update.Topic + "/gateway/" + gwid
 					c.Unsubscribe(devGwTopic + "/stats")
 					if supportTransducerGateway {
@@ -282,7 +282,7 @@ func main() {
 			case framework.DeviceUpdateTypeUpd:
 				logitem.Info("Removing links for update")
 				if gwid, ok := deviceGwid[update.Id]; ok {
-					devTopic := update.Topic + "/" + framework.TransducerPrefix
+					devTopic := update.Topic
 					devGwTopic := update.Topic + "/gateway/" + gwid
 					c.Unsubscribe(devGwTopic + "/stats")
 					if supportTransducerGateway {
@@ -333,7 +333,7 @@ func main() {
 				c.SetDeviceStatus(update.Id, "Linking as gateway ", gwid)
 
 				// OC Device Transducer Gateway Topic
-				devTopic := update.Topic + "/" + framework.TransducerPrefix
+				devTopic := update.Topic
 				// OC Device Root Gateway Topic
 				devGwTopic := update.Topic + "/gateway/" + gwid
 				// Lora Server Gateway Topic
