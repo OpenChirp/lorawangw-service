@@ -235,7 +235,7 @@ func main() {
 	defer c.StopDeviceUpdates()
 
 	log.Info("Processing device updates")
-	signals := make(chan os.Signal)
+	signals := make(chan os.Signal, 1)
 	signal.Notify(signals, os.Interrupt, syscall.SIGTERM)
 
 	err = c.SetStatus("Started")
