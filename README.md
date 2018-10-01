@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/OpenChirp/lorawangw-service.svg?branch=master)](https://travis-ci.org/OpenChirp/lorawangw-service)
+
 # lorawangw-service
 LoRaWAN Gateway Service for OpenChirp
 
