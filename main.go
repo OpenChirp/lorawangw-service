@@ -341,7 +341,7 @@ func main() {
 
 				reportDeviceStatus := func(e error) {
 					if e != nil {
-						c.SetDeviceStatus(update.Id, "Error linking as \"%s\": %v", gwid, e)
+						c.SetDeviceStatus(update.Id, "Error linking as \"", gwid, "\": ", e)
 					} else {
 						c.SetDeviceStatus(update.Id, "Linked as gateway ", gwid)
 					}
