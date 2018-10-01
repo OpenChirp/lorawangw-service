@@ -54,7 +54,6 @@ const (
 )
 
 const (
-	hexChars        = "0123456789abcdef"
 	gatewayIdKey    = "Gateway ID"
 	gatewayIdLength = len("D00D8BADF00D0001")
 )
