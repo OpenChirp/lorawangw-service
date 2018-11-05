@@ -247,6 +247,10 @@ func run(ctx *cli.Context) error {
 	}
 	log.Info("Published Service Status")
 
+	if systemdIntegration {
+		daemon.SdNotify(false, daemon.SdNotifyReady)
+	}
+
 	for {
 		select {
 		case update := <-updates:
