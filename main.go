@@ -158,7 +158,7 @@ func run(ctx *cli.Context) error {
 	)
 	if err != nil {
 		log.Error("Failed to StartServiceClient: ", err)
-		cli.NewExitError(nil, 1)
+		return cli.NewExitError(nil, 1)
 	}
 	defer c.StopClient()
 	log.Info("Started LoRaWAN Gateways Service")
@@ -166,7 +166,7 @@ func run(ctx *cli.Context) error {
 	err = c.SetStatus("Starting")
 	if err != nil {
 		log.Error("Failed to publish service status: ", err)
-		cli.NewExitError(nil, 1)
+		return cli.NewExitError(nil, 1)
 	}
 	log.Info("Published Service Status")
 
@@ -218,7 +218,7 @@ func run(ctx *cli.Context) error {
 	)
 	if err != nil {
 		log.Error("Failed to start loraserver MQTT client: ", err)
-		cli.NewExitError(nil, 1)
+		return cli.NewExitError(nil, 1)
 	}
 	defer lsMQTT.Disconnect()
 
@@ -233,7 +233,7 @@ func run(ctx *cli.Context) error {
 	updates, err := c.StartDeviceUpdatesSimple()
 	if err != nil {
 		log.Error("Failed to start device updates stream: ", err)
-		cli.NewExitError(nil, 1)
+		return cli.NewExitError(nil, 1)
 	}
 	defer c.StopDeviceUpdates()
 
@@ -244,7 +244,7 @@ func run(ctx *cli.Context) error {
 	err = c.SetStatus("Started")
 	if err != nil {
 		log.Error("Failed to publish service status: ", err)
-		cli.NewExitError(nil, 1)
+		return cli.NewExitError(nil, 1)
 	}
 	log.Info("Published Service Status")
 
@@ -259,7 +259,7 @@ func run(ctx *cli.Context) error {
 				err = c.SetStatus("Running")
 				if err != nil {
 					log.Error("Failed to publish service status: ", err)
-					cli.NewExitError(nil, 1)
+					return cli.NewExitError(nil, 1)
 				}
 				log.Info("Published Service Status")
 			}
@@ -586,7 +586,7 @@ cleanup:
 	err = c.SetStatus("Shutting down")
 	if err != nil {
 		log.Error("Failed to publish service status: ", err)
-		cli.NewExitError(nil, 1)
+		return cli.NewExitError(nil, 1)
 	}
 	log.Info("Published Service Status")
 
