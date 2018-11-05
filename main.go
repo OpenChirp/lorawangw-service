@@ -18,6 +18,7 @@ import (
 	"github.com/brocaar/lorawan"
 	"github.com/coreos/go-systemd/daemon"
 	"github.com/openchirp/framework"
+	"github.com/openchirp/framework/pubsub"
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
 	"github.com/wercker/journalhook"
@@ -208,11 +209,11 @@ func run(ctx *cli.Context) error {
 
 	/* Start the loraserver interface MQTT client */
 	log.Info("Starting loraserver MQTT client")
-	lsMQTT, err := NewMQTTClient(
+	lsMQTT, err := pubsub.NewMQTTClient(
 		loraserverMQTTBroker,
 		loraserverMQTTUser,
 		loraserverMQTTPass,
-		ParseMQTTQoS(loraserverMQTTQoS),
+		pubsub.ParseMQTTQoS(loraserverMQTTQoS),
 		false,
 	)
 	if err != nil {
