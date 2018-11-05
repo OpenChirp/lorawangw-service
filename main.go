@@ -38,7 +38,7 @@ const (
 	runningStatus = true
 
 	// Set this to true to allow gateways to interact in the
-	// <devid>/transducer/{tx, rx, stats} mqtt domain in addition to
+	// <devid>/{tx, rx, stats} mqtt domain in addition to
 	// the <devid>/gateway/<gwid>/{tx, rx, stats} prefix domain
 	supportTransducerGateway = false
 
@@ -51,7 +51,7 @@ const (
 	supportTXPacketStats = true
 
 	defaultFrameworkURI = "http://localhost:7000"
-	defaultBrokerURI    = "tls://localhost:1883"
+	defaultBrokerURI    = "tcp://localhost:1883"
 	defaultServiceID    = ""
 	defaultServiceToken = ""
 
