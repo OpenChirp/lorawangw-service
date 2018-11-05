@@ -62,8 +62,8 @@ const (
 )
 
 const (
-	gatewayIdKey    = "Gateway ID"
-	gatewayIdLength = len("D00D8BADF00D0001")
+	gatewayIDKey    = "Gateway ID"
+	gatewayIDLength = len("D00D8BADF00D0001")
 )
 
 const (
@@ -123,6 +123,200 @@ type StatsPacket struct {
 	Altitude     int     `json:"altitude"`
 	RxReceived   uint    `json:"rxPacketsReceived"`
 	RxReceivedOk uint    `json:"rxPacketsReceivedOK"`
+}
+
+func ProcessStatsHandler(log *logrus.Logger, c *framework.ServiceClient, lsMQTT *pubsub.MQTTClient, devid, endpoint, gwid string) func(topic string, payload []byte) {
+	// OC Device Transducer Gateway Topic
+	devTopic := endpoint
+	// OC Device Root Gateway Topic
+	// devGwTopic := endpoint + "/gateway/" + gwid
+	// Lora Server Gateway Topic
+	lsTopic := "gateway/" + gwid
+
+	return func(topic string, payload []byte) {
+		var stats StatsPacket
+
+		loglocal := log.WithFields(logrus.Fields{"devid": devid, "gwid": gwid, "pkt": "stat"})
+
+		// forward first
+		err := lsMQTT.Publish(lsTopic+"/stats", payload)
+		if err != nil {
+			loglocal.Warnf("Failed forward stats to %s", lsTopic+"/stats")
+		}
+
+		// then parse
+		err = json.Unmarshal(payload, &stats)
+		if err != nil {
+			loglocal.Warnf("Failed to Unmarshal stats JSON")
+			return
+		}
+		loglocal.Debug("Received stats: ", stats)
+
+		err = c.Publish(devTopic+"/"+topicLat, fmt.Sprint(stats.Latitude))
+		if err != nil {
+			loglocal.Errorf("Failed to publish %s for deviceid %s", topicLat, devid)
+		}
+		err = c.Publish(devTopic+"/"+topicLon, fmt.Sprint(stats.Longitude))
+		if err != nil {
+			loglocal.Errorf("Failed to publish %s for deviceid %s", topicLon, devid)
+		}
+		err = c.Publish(devTopic+"/"+topicAlt, fmt.Sprint(stats.Altitude))
+		if err != nil {
+			loglocal.Errorf("Failed to publish %s for deviceid %s", topicAlt, devid)
+		}
+		err = c.Publish(devTopic+"/"+topicPktRecv, fmt.Sprint(stats.RxReceived))
+		if err != nil {
+			loglocal.Errorf("Failed to publish %s for deviceid %s", topicPktRecv, devid)
+		}
+		err = c.Publish(devTopic+"/"+topicPktRecvOk, fmt.Sprint(stats.RxReceivedOk))
+		if err != nil {
+			loglocal.Errorf("Failed to publish %s for deviceid %s", topicPktRecvOk, devid)
+		}
+	}
+}
+
+func ProcessRXHandler(log *logrus.Logger, c *framework.ServiceClient, lsMQTT *pubsub.MQTTClient, devid, endpoint, gwid string) func(topic string, payload []byte) {
+	// OC Device Transducer Gateway Topic
+	devTopic := endpoint
+	// OC Device Root Gateway Topic
+	// devGwTopic := endpoint + "/gateway/" + gwid
+	// Lora Server Gateway Topic
+	lsTopic := "gateway/" + gwid
+
+	return func(topic string, payload []byte) {
+		loglocal := log.WithFields(logrus.Fields{"devid": devid, "gwid": gwid, "pkt": "rx"})
+
+		// forward first
+		err := lsMQTT.Publish(lsTopic+"/rx", payload)
+		if err != nil {
+			loglocal.Warnf("Failed forward rx to %s", lsTopic+"/rx")
+		}
+
+		// then parse
+		if supportRXPacketStats {
+			var rx models.RXPacket
+			err = json.Unmarshal(payload, &rx)
+			if err != nil {
+				loglocal.Warnf("Failed to Unmarshal rx JSON")
+				return
+			}
+			loglocal.Debug("Received rx: ", rx)
+
+			err = c.Publish(devTopic+"/"+topicCRCStatus, fmt.Sprint(rx.RXInfo.CRCStatus))
+			if err != nil {
+				loglocal.Errorf("Failed to publish %s for deviceid %s", topicCRCStatus, devid)
+			}
+			err = c.Publish(devTopic+"/"+topicFrequency, fmt.Sprint(rx.RXInfo.Frequency))
+			if err != nil {
+				loglocal.Errorf("Failed to publish %s for deviceid %s", topicFrequency, devid)
+			}
+			err = c.Publish(devTopic+"/"+topicRSSI, fmt.Sprint(rx.RXInfo.RSSI))
+			if err != nil {
+				loglocal.Errorf("Failed to publish %s for deviceid %s", topicRSSI, devid)
+			}
+			err = c.Publish(devTopic+"/"+topicLoRaSNR, fmt.Sprint(rx.RXInfo.LoRaSNR))
+			if err != nil {
+				loglocal.Errorf("Failed to publish %s for deviceid %s", topicLoRaSNR, devid)
+			}
+			err = c.Publish(devTopic+"/"+topicSpreadingFactor, fmt.Sprint(rx.RXInfo.DataRate.SpreadFactor))
+			if err != nil {
+				loglocal.Errorf("Failed to publish %s for deviceid %s", topicSpreadingFactor, devid)
+			}
+			err = c.Publish(devTopic+"/"+topicBandwidth, fmt.Sprint(rx.RXInfo.DataRate.Bandwidth))
+			if err != nil {
+				loglocal.Errorf("Failed to publish %s for deviceid %s", topicBandwidth, devid)
+			}
+			err = c.Publish(devTopic+"/"+topicTimestamp, fmt.Sprint(rx.RXInfo.Timestamp))
+			if err != nil {
+				loglocal.Errorf("Failed to publish %s for deviceid %s", topicTimestamp, devid)
+			}
+
+			if rx.PHYPayload.MHDR.MType == lorawan.UnconfirmedDataUp ||
+				rx.PHYPayload.MHDR.MType == lorawan.ConfirmedDataUp {
+				devAddrBuf, _ := rx.PHYPayload.MACPayload.(*lorawan.MACPayload).FHDR.DevAddr.MarshalBinary()
+				// devAddrBuf[3] = devAddrBuf[3] & 0x01
+				devAddr := binary.LittleEndian.Uint32(devAddrBuf)
+
+				nwkID := rx.PHYPayload.MACPayload.(*lorawan.MACPayload).FHDR.DevAddr.NwkID()
+
+				err = c.Publish(devTopic+"/"+topicNetworkID, fmt.Sprint(uint(nwkID)))
+				if err != nil {
+					loglocal.Errorf("Failed to publish %s for deviceid %s", topicNetworkID, devid)
+				}
+
+				err = c.Publish(devTopic+"/"+topicDevAddr, fmt.Sprint(devAddr))
+				if err != nil {
+					loglocal.Errorf("Failed to publish %s for deviceid %s", topicDevAddr, devid)
+				}
+			}
+
+		}
+	}
+}
+
+func ProcessTXHandler(log *logrus.Logger, c *framework.ServiceClient, lsMQTT *pubsub.MQTTClient, devid, endpoint, gwid string) func(topic string, payload []byte) {
+	// OC Device Transducer Gateway Topic
+	devTopic := endpoint
+	// OC Device Root Gateway Topic
+	devGwTopic := endpoint + "/gateway/" + gwid
+	// Lora Server Gateway Topic
+	// lsTopic := "gateway/" + gwid
+
+	return func(topic string, payload []byte) {
+		loglocal := log.WithFields(logrus.Fields{"devid": devid, "gwid": gwid, "pkt": "tx"})
+
+		// forward first
+		if supportTransducerGateway {
+			err := c.Publish(devTopic+"/tx", payload)
+			if err != nil {
+				loglocal.Warnf("Failed forward tx to %s", devTopic+"/tx")
+			}
+		}
+		err := c.Publish(devGwTopic+"/tx", payload)
+		if err != nil {
+			loglocal.Warnf("Failed forward tx to %s", devGwTopic+"/tx")
+		}
+
+		// then parse
+		if supportTXPacketStats {
+			var tx models.TXPacket
+			err = json.Unmarshal(payload, &tx)
+			if err != nil {
+				loglocal.Warnf("Failed to Unmarshal rx JSON")
+				return
+			}
+			loglocal.Debug("Received tx: ", tx)
+
+			err = c.Publish(devTopic+"/"+topicTxPower, fmt.Sprint(tx.TXInfo.Power))
+			if err != nil {
+				loglocal.Errorf("Failed to publish %s for deviceid %s", topicTxPower, devid)
+			}
+			err = c.Publish(devTopic+"/"+topicTxFrequency, fmt.Sprint(tx.TXInfo.Frequency))
+			if err != nil {
+				loglocal.Errorf("Failed to publish %s for deviceid %s", topicTxFrequency, devid)
+			}
+			err = c.Publish(devTopic+"/"+topicTxSpreadingFactor, fmt.Sprint(tx.TXInfo.DataRate.SpreadFactor))
+			if err != nil {
+				loglocal.Errorf("Failed to publish %s for deviceid %s", topicTxSpreadingFactor, devid)
+			}
+			err = c.Publish(devTopic+"/"+topicTxBandwidth, fmt.Sprint(tx.TXInfo.DataRate.Bandwidth))
+			if err != nil {
+				loglocal.Errorf("Failed to publish %s for deviceid %s", topicTxBandwidth, devid)
+			}
+			if tx.TXInfo.Immediately {
+				// If send immediately, publish a -1
+				err = c.Publish(devTopic+"/"+topicTxTimestamp, fmt.Sprint(-1))
+				if err != nil {
+					loglocal.Errorf("Failed to publish %s for deviceid %s", topicTxTimestamp, devid)
+				}
+			} else {
+				err = c.Publish(devTopic+"/"+topicTxTimestamp, fmt.Sprint(tx.TXInfo.Timestamp))
+				if err != nil {
+					loglocal.Errorf("Failed to publish %s for deviceid %s", topicTxTimestamp, devid)
+				}
+			}
+		}
+	}
 }
 
 func run(ctx *cli.Context) error {
@@ -264,7 +458,7 @@ func run(ctx *cli.Context) error {
 				log.Info("Published Service Status")
 			}
 
-			logitem := log.WithFields(logrus.Fields{"type": update.Type, "devid": update.Id, "gwid": update.Config[gatewayIdKey]})
+			logitem := log.WithFields(logrus.Fields{"type": update.Type, "devid": update.Id, "gwid": update.Config[gatewayIDKey]})
 
 			switch update.Type {
 			case framework.DeviceUpdateTypeErr:
@@ -306,17 +500,17 @@ func run(ctx *cli.Context) error {
 				fallthrough
 			case framework.DeviceUpdateTypeAdd:
 				logitem.Info("Adding links")
-				gwid, ok := update.Config[gatewayIdKey]
+				gwid, ok := update.Config[gatewayIDKey]
 				/* Check that the Gateway ID parameter was specified in the config */
 				if !ok {
-					logitem.Warn("No \"", gatewayIdKey, "\" key specified in config")
+					logitem.Warn("No \"", gatewayIDKey, "\" key specified in config")
 					c.SetDeviceStatus(update.Id, "No Gateway ID in config")
 					continue
 				}
 				/* Check the length of the gateway id */
-				if len(gwid) != gatewayIdLength {
+				if len(gwid) != gatewayIDLength {
 					logitem.Warn("Gateway ID \"", gwid, "\" contains invalid hex characters")
-					c.SetDeviceStatus(update.Id, "Gateway ID has invalid length (", len(gwid), "!=", gatewayIdLength, ")")
+					c.SetDeviceStatus(update.Id, "Gateway ID has invalid length (", len(gwid), "!=", gatewayIDLength, ")")
 					continue
 				}
 				/* Check that all characters are valid hex characters */
@@ -356,176 +550,9 @@ func run(ctx *cli.Context) error {
 
 				devid := update.Id
 
-				processTx := func(topic string, payload []byte) {
-					loglocal := log.WithFields(logrus.Fields{"devid": devid, "gwid": gwid, "pkt": "tx"})
-
-					// forward first
-					if supportTransducerGateway {
-						err := c.Publish(devTopic+"/tx", payload)
-						if err != nil {
-							loglocal.Warnf("Failed forward tx to %s", devTopic+"/tx")
-						}
-					}
-					err := c.Publish(devGwTopic+"/tx", payload)
-					if err != nil {
-						loglocal.Warnf("Failed forward tx to %s", devGwTopic+"/tx")
-					}
-
-					// then parse
-					if supportTXPacketStats {
-						var tx models.TXPacket
-						err = json.Unmarshal(payload, &tx)
-						if err != nil {
-							loglocal.Warnf("Failed to Unmarshal rx JSON")
-							return
-						}
-						loglocal.Debug("Received tx: ", tx)
-
-						err = c.Publish(devTopic+"/"+topicTxPower, fmt.Sprint(tx.TXInfo.Power))
-						if err != nil {
-							loglocal.Errorf("Failed to publish %s for deviceid %s", topicTxPower, devid)
-						}
-						err = c.Publish(devTopic+"/"+topicTxFrequency, fmt.Sprint(tx.TXInfo.Frequency))
-						if err != nil {
-							loglocal.Errorf("Failed to publish %s for deviceid %s", topicTxFrequency, devid)
-						}
-						err = c.Publish(devTopic+"/"+topicTxSpreadingFactor, fmt.Sprint(tx.TXInfo.DataRate.SpreadFactor))
-						if err != nil {
-							loglocal.Errorf("Failed to publish %s for deviceid %s", topicTxSpreadingFactor, devid)
-						}
-						err = c.Publish(devTopic+"/"+topicTxBandwidth, fmt.Sprint(tx.TXInfo.DataRate.Bandwidth))
-						if err != nil {
-							loglocal.Errorf("Failed to publish %s for deviceid %s", topicTxBandwidth, devid)
-						}
-						if tx.TXInfo.Immediately {
-							// If send immediately, publish a -1
-							err = c.Publish(devTopic+"/"+topicTxTimestamp, fmt.Sprint(-1))
-							if err != nil {
-								loglocal.Errorf("Failed to publish %s for deviceid %s", topicTxTimestamp, devid)
-							}
-						} else {
-							err = c.Publish(devTopic+"/"+topicTxTimestamp, fmt.Sprint(tx.TXInfo.Timestamp))
-							if err != nil {
-								loglocal.Errorf("Failed to publish %s for deviceid %s", topicTxTimestamp, devid)
-							}
-						}
-					}
-				}
-
-				processRx := func(topic string, payload []byte) {
-					loglocal := log.WithFields(logrus.Fields{"devid": devid, "gwid": gwid, "pkt": "rx"})
-
-					// forward first
-					err := lsMQTT.Publish(lsTopic+"/rx", payload)
-					if err != nil {
-						loglocal.Warnf("Failed forward rx to %s", lsTopic+"/rx")
-					}
-
-					// then parse
-					if supportRXPacketStats {
-						var rx models.RXPacket
-						err = json.Unmarshal(payload, &rx)
-						if err != nil {
-							loglocal.Warnf("Failed to Unmarshal rx JSON")
-							return
-						}
-						loglocal.Debug("Received rx: ", rx)
-
-						err = c.Publish(devTopic+"/"+topicCRCStatus, fmt.Sprint(rx.RXInfo.CRCStatus))
-						if err != nil {
-							loglocal.Errorf("Failed to publish %s for deviceid %s", topicCRCStatus, devid)
-						}
-						err = c.Publish(devTopic+"/"+topicFrequency, fmt.Sprint(rx.RXInfo.Frequency))
-						if err != nil {
-							loglocal.Errorf("Failed to publish %s for deviceid %s", topicFrequency, devid)
-						}
-						err = c.Publish(devTopic+"/"+topicRSSI, fmt.Sprint(rx.RXInfo.RSSI))
-						if err != nil {
-							loglocal.Errorf("Failed to publish %s for deviceid %s", topicRSSI, devid)
-						}
-						err = c.Publish(devTopic+"/"+topicLoRaSNR, fmt.Sprint(rx.RXInfo.LoRaSNR))
-						if err != nil {
-							loglocal.Errorf("Failed to publish %s for deviceid %s", topicLoRaSNR, devid)
-						}
-						err = c.Publish(devTopic+"/"+topicSpreadingFactor, fmt.Sprint(rx.RXInfo.DataRate.SpreadFactor))
-						if err != nil {
-							loglocal.Errorf("Failed to publish %s for deviceid %s", topicSpreadingFactor, devid)
-						}
-						err = c.Publish(devTopic+"/"+topicBandwidth, fmt.Sprint(rx.RXInfo.DataRate.Bandwidth))
-						if err != nil {
-							loglocal.Errorf("Failed to publish %s for deviceid %s", topicBandwidth, devid)
-						}
-						err = c.Publish(devTopic+"/"+topicTimestamp, fmt.Sprint(rx.RXInfo.Timestamp))
-						if err != nil {
-							loglocal.Errorf("Failed to publish %s for deviceid %s", topicTimestamp, devid)
-						}
-
-						if rx.PHYPayload.MHDR.MType == lorawan.UnconfirmedDataUp ||
-							rx.PHYPayload.MHDR.MType == lorawan.ConfirmedDataUp {
-							devAddrBuf, _ := rx.PHYPayload.MACPayload.(*lorawan.MACPayload).FHDR.DevAddr.MarshalBinary()
-							// devAddrBuf[3] = devAddrBuf[3] & 0x01
-							devAddr := binary.LittleEndian.Uint32(devAddrBuf)
-
-							nwkID := rx.PHYPayload.MACPayload.(*lorawan.MACPayload).FHDR.DevAddr.NwkID()
-
-							err = c.Publish(devTopic+"/"+topicNetworkID, fmt.Sprint(uint(nwkID)))
-							if err != nil {
-								loglocal.Errorf("Failed to publish %s for deviceid %s", topicNetworkID, devid)
-							}
-
-							err = c.Publish(devTopic+"/"+topicDevAddr, fmt.Sprint(devAddr))
-							if err != nil {
-								loglocal.Errorf("Failed to publish %s for deviceid %s", topicDevAddr, devid)
-							}
-						}
-
-					}
-				}
-
-				processStats := func(topic string, payload []byte) {
-					var stats StatsPacket
-
-					loglocal := log.WithFields(logrus.Fields{"devid": devid, "gwid": gwid, "pkt": "stat"})
-
-					// forward first
-					err := lsMQTT.Publish(lsTopic+"/stats", payload)
-					if err != nil {
-						loglocal.Warnf("Failed forward stats to %s", lsTopic+"/stats")
-					}
-
-					// then parse
-					err = json.Unmarshal(payload, &stats)
-					if err != nil {
-						loglocal.Warnf("Failed to Unmarshal stats JSON")
-						return
-					}
-					loglocal.Debug("Received stats: ", stats)
-
-					err = c.Publish(devTopic+"/"+topicLat, fmt.Sprint(stats.Latitude))
-					if err != nil {
-						loglocal.Errorf("Failed to publish %s for deviceid %s", topicLat, devid)
-					}
-					err = c.Publish(devTopic+"/"+topicLon, fmt.Sprint(stats.Longitude))
-					if err != nil {
-						loglocal.Errorf("Failed to publish %s for deviceid %s", topicLon, devid)
-					}
-					err = c.Publish(devTopic+"/"+topicAlt, fmt.Sprint(stats.Altitude))
-					if err != nil {
-						loglocal.Errorf("Failed to publish %s for deviceid %s", topicAlt, devid)
-					}
-					err = c.Publish(devTopic+"/"+topicPktRecv, fmt.Sprint(stats.RxReceived))
-					if err != nil {
-						loglocal.Errorf("Failed to publish %s for deviceid %s", topicPktRecv, devid)
-					}
-					err = c.Publish(devTopic+"/"+topicPktRecvOk, fmt.Sprint(stats.RxReceivedOk))
-					if err != nil {
-						loglocal.Errorf("Failed to publish %s for deviceid %s", topicPktRecvOk, devid)
-					}
-				}
-
 				/* Add tx streams */
 				logitem.Debugf("Adding processor for %s", lsTopic+"/tx")
-				err = lsMQTT.Subscribe(lsTopic+"/tx", processTx)
+				err = lsMQTT.Subscribe(lsTopic+"/tx", ProcessTXHandler(log, c, lsMQTT, devid, update.Topic, gwid))
 				if err != nil {
 					logitem.Error("Failed to link to device tx topic: ", err)
 					reportDeviceStatus(err)
@@ -536,7 +563,7 @@ func run(ctx *cli.Context) error {
 				/* Add rx streams */
 				if supportTransducerGateway {
 					logitem.Debugf("Adding processor for %s", devTopic+"/rx")
-					err = c.Subscribe(devTopic+"/rx", processRx)
+					err = c.Subscribe(devTopic+"/rx", ProcessRXHandler(log, c, lsMQTT, devid, update.Topic, gwid))
 					if err != nil {
 						logitem.Error("Failed to link to device rx topic: ", err)
 						reportDeviceStatus(err)
@@ -545,7 +572,7 @@ func run(ctx *cli.Context) error {
 					}
 				}
 				logitem.Debugf("Adding processor for %s", devGwTopic+"/rx")
-				err = c.Subscribe(devGwTopic+"/rx", processRx)
+				err = c.Subscribe(devGwTopic+"/rx", ProcessRXHandler(log, c, lsMQTT, devid, update.Topic, gwid))
 				if err != nil {
 					logitem.Error("Failed to link to device rx topic: ", err)
 					reportDeviceStatus(err)
@@ -556,7 +583,7 @@ func run(ctx *cli.Context) error {
 				/* Add stats streams */
 				if supportTransducerGateway {
 					logitem.Debugf("Adding processor for %s", devTopic+"/stats")
-					err = c.Subscribe(devTopic+"/stats", processStats)
+					err = c.Subscribe(devTopic+"/stats", ProcessStatsHandler(log, c, lsMQTT, devid, update.Topic, gwid))
 					if err != nil {
 						logitem.Error("Failed to link to device status topic: ", err)
 						reportDeviceStatus(err)
@@ -565,7 +592,7 @@ func run(ctx *cli.Context) error {
 					}
 				}
 				logitem.Debugf("Adding processor for %s", devGwTopic+"/stats")
-				err = c.Subscribe(devGwTopic+"/stats", processStats)
+				err = c.Subscribe(devGwTopic+"/stats", ProcessStatsHandler(log, c, lsMQTT, devid, update.Topic, gwid))
 				if err != nil {
 					logitem.Error("Failed to link to device status topic: ", err)
 					reportDeviceStatus(err)
