@@ -25,7 +25,7 @@ import (
 )
 
 const (
-	version string = "1.0"
+	version string = "1.1"
 )
 
 const (
