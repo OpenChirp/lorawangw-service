@@ -7,8 +7,8 @@ package main
 import (
 	"encoding/binary"
 	"encoding/json"
-	"flag"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"os/signal"
 	"strings"
@@ -16,8 +16,15 @@ import (
 
 	"github.com/brocaar/loraserver/models"
 	"github.com/brocaar/lorawan"
+	"github.com/coreos/go-systemd/daemon"
 	"github.com/openchirp/framework"
 	"github.com/sirupsen/logrus"
+	"github.com/urfave/cli"
+	"github.com/wercker/journalhook"
+)
+
+const (
+	version string = "1.0"
 )
 
 const (
@@ -48,7 +55,7 @@ const (
 	defaultServiceToken = ""
 
 	defaultLsBroker = "<framework_broker>"
-	defaultLsQoS    = "2"
+	defaultLsQoS    = uint(2)
 	defaultLsUser   = "<framework_id>"
 	defaultLsPass   = "<framework_pass>"
 )
@@ -86,17 +93,6 @@ const (
 	topicTxTimestamp       = "tx_timestamp"
 )
 
-/* Options to be filled in by arguments */
-var frameworkURI string
-var brokerURI string
-var serviceID string
-var serviceToken string
-
-var loraserverMQTTBroker string
-var loraserverMQTTQoS string
-var loraserverMQTTUser string
-var loraserverMQTTPass string
-
 func isHexCharacters(id string) bool {
 	for _, c := range id {
 		if !(('0' <= c && c <= '9') || ('a' <= c && c <= 'f') || ('A' <= c && c <= 'F')) {
@@ -128,33 +124,40 @@ type StatsPacket struct {
 	RxReceivedOk uint    `json:"rxPacketsReceivedOK"`
 }
 
-/* Setup argument flags and help prompt */
-func init() {
-	/* Setup Arguments */
-	flag.StringVar(&frameworkURI, "framework", defaultFrameworkURI, "Sets the HTTP REST framework server URI")
-	flag.StringVar(&brokerURI, "broker", defaultBrokerURI, "Sets the MQTT broker URI associated with the framework server")
-	flag.StringVar(&serviceID, "id", defaultServiceID, "Sets the service ID associated with this service instance")
-	flag.StringVar(&serviceToken, "token", defaultServiceToken, "Sets the service access token associated with this instance")
+func run(ctx *cli.Context) error {
 
-	flag.StringVar(&loraserverMQTTBroker, "lsbroker", defaultLsBroker, "Sets the loraserver's MQTT broker")
-	flag.StringVar(&loraserverMQTTQoS, "lsqos", defaultLsQoS, "Sets the loraserver's MQTT QoS")
-	flag.StringVar(&loraserverMQTTUser, "lsuser", defaultLsUser, "Sets the loraserver's MQTT Username")
-	flag.StringVar(&loraserverMQTTPass, "lspass", defaultLsPass, "Sets the loraserver's MQTT Password")
-}
+	systemdIntegration := ctx.Bool("systemd")
 
-func main() {
-	flag.Parse()
-
-	/* Setup Logging */
+	/* Set logging level */
 	log := logrus.New()
-	log.SetLevel(logrus.Level(5))
+	log.SetLevel(logrus.Level(uint32(ctx.Int("log-level"))))
+	if systemdIntegration {
+		log.AddHook(&journalhook.JournalHook{})
+		log.Out = ioutil.Discard
+	}
+
+	/* Options to be filled in by arguments */
+	var frameworkURI = ctx.String("framework-server")
+	var brokerURI = ctx.String("mqtt-server")
+	var serviceID = ctx.String("service-id")
+	var serviceToken = ctx.String("service-token")
+	var loraserverMQTTBroker = ctx.String("ls-mqtt-server")
+	var loraserverMQTTQoS = fmt.Sprint(ctx.Uint("ls-mqtt-qos"))
+	var loraserverMQTTUser = ctx.String("ls-mqtt-user")
+	var loraserverMQTTPass = ctx.String("ls-mqtt-pass")
 
 	log.Info("Starting LoRaWAN Gateways Service")
 
-	c, err := framework.StartServiceClientStatus(frameworkURI, brokerURI, serviceID, serviceToken, "Unexpected disconnect!")
+	c, err := framework.StartServiceClientStatus(
+		frameworkURI,
+		brokerURI,
+		serviceID,
+		serviceToken,
+		"Unexpected disconnect!",
+	)
 	if err != nil {
 		log.Error("Failed to StartServiceClient: ", err)
-		return
+		cli.NewExitError(nil, 1)
 	}
 	defer c.StopClient()
 	log.Info("Started LoRaWAN Gateways Service")
@@ -162,7 +165,7 @@ func main() {
 	err = c.SetStatus("Starting")
 	if err != nil {
 		log.Error("Failed to publish service status: ", err)
-		return
+		cli.NewExitError(nil, 1)
 	}
 	log.Info("Published Service Status")
 
@@ -177,7 +180,7 @@ func main() {
 		if loraserverMQTTBroker == "" {
 			// Set to framework mqtt parameters
 			loraserverMQTTBroker = brokerURI
-			loraserverMQTTQoS = defaultLsQoS
+			loraserverMQTTQoS = fmt.Sprint(defaultLsQoS)
 			loraserverMQTTUser = serviceID
 			loraserverMQTTPass = serviceToken
 			logitem := log.WithFields(logrus.Fields{"user": loraserverMQTTUser, "broker": loraserverMQTTBroker})
@@ -200,7 +203,7 @@ func main() {
 	}
 	// Set QoS if not specified
 	if loraserverMQTTQoS == "" {
-		loraserverMQTTQoS = defaultLsQoS
+		loraserverMQTTQoS = fmt.Sprint(defaultLsQoS)
 	}
 
 	/* Start the loraserver interface MQTT client */
@@ -214,7 +217,7 @@ func main() {
 	)
 	if err != nil {
 		log.Error("Failed to start loraserver MQTT client: ", err)
-		return
+		cli.NewExitError(nil, 1)
 	}
 	defer lsMQTT.Disconnect()
 
@@ -229,7 +232,7 @@ func main() {
 	updates, err := c.StartDeviceUpdatesSimple()
 	if err != nil {
 		log.Error("Failed to start device updates stream: ", err)
-		return
+		cli.NewExitError(nil, 1)
 	}
 	defer c.StopDeviceUpdates()
 
@@ -240,7 +243,7 @@ func main() {
 	err = c.SetStatus("Started")
 	if err != nil {
 		log.Error("Failed to publish service status: ", err)
-		return
+		cli.NewExitError(nil, 1)
 	}
 	log.Info("Published Service Status")
 
@@ -251,7 +254,7 @@ func main() {
 				err = c.SetStatus("Running")
 				if err != nil {
 					log.Error("Failed to publish service status: ", err)
-					return
+					cli.NewExitError(nil, 1)
 				}
 				log.Info("Published Service Status")
 			}
@@ -578,7 +581,84 @@ cleanup:
 	err = c.SetStatus("Shutting down")
 	if err != nil {
 		log.Error("Failed to publish service status: ", err)
-		return
+		cli.NewExitError(nil, 1)
 	}
 	log.Info("Published Service Status")
+
+	if systemdIntegration {
+		daemon.SdNotify(false, daemon.SdNotifyStopping)
+	}
+
+	return cli.NewExitError(nil, 0)
+}
+
+func main() {
+	app := cli.NewApp()
+	app.Name = "lorawangw-service"
+	app.Usage = ""
+	app.Copyright = "See https://github.com/openchirp/lorawangw-service for copyright information"
+	app.Version = version
+	app.Action = run
+	app.Flags = []cli.Flag{
+		/* Communication to OpenChirp Framework */
+		cli.StringFlag{
+			Name:   "framework-server",
+			Usage:  "OpenChirp framework server's URI",
+			Value:  "http://localhost:7000",
+			EnvVar: "FRAMEWORK_SERVER",
+		},
+		cli.StringFlag{
+			Name:   "mqtt-server",
+			Usage:  "MQTT server's URI (e.g. scheme://host:port where scheme is tcp or tls)",
+			Value:  "tls://localhost:1883",
+			EnvVar: "MQTT_SERVER",
+		},
+		cli.StringFlag{
+			Name:   "service-id",
+			Usage:  "OpenChirp service id",
+			EnvVar: "SERVICE_ID",
+		},
+		cli.StringFlag{
+			Name:   "service-token",
+			Usage:  "OpenChirp service token",
+			EnvVar: "SERVICE_TOKEN",
+		},
+		cli.IntFlag{
+			Name:   "log-level",
+			Value:  4,
+			Usage:  "debug=5, info=4, warning=3, error=2, fatal=1, panic=0",
+			EnvVar: "LOG_LEVEL",
+		},
+		cli.BoolFlag{
+			Name:   "systemd",
+			Usage:  "Indicates that this service can use systemd specific interfaces.",
+			EnvVar: "SYSTEMD",
+		},
+		/* Communication to LoRaServer */
+		cli.StringFlag{
+			Name:   "ls-mqtt-server",
+			Usage:  "LoRa Server MQTT server's URI (e.g. scheme://host:port where scheme is tcp or tls)",
+			Value:  defaultLsBroker,
+			EnvVar: "LS_MQTT_SERVER",
+		},
+		cli.UintFlag{
+			Name:   "ls-mqtt-qos",
+			Usage:  "LoRa Server MQTT server's QoS (0, 1, or 2)",
+			Value:  defaultLsQoS,
+			EnvVar: "APP_MQTT_QOS",
+		},
+		cli.StringFlag{
+			Name:   "ls-mqtt-user",
+			Usage:  "LoRa Server MQTT server's username",
+			Value:  defaultLsUser,
+			EnvVar: "LS_MQTT_USER",
+		},
+		cli.StringFlag{
+			Name:   "ls-mqtt-pass",
+			Usage:  "LoRa Server MQTT server's password",
+			Value:  defaultLsPass,
+			EnvVar: "LS_MQTT_PASS",
+		},
+	}
+	app.Run(os.Args)
 }
