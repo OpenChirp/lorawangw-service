@@ -677,7 +677,7 @@ func main() {
 			Name:   "ls-mqtt-qos",
 			Usage:  "LoRa Server MQTT server's QoS (0, 1, or 2)",
 			Value:  defaultLsQoS,
-			EnvVar: "APP_MQTT_QOS",
+			EnvVar: "LS_MQTT_QOS",
 		},
 		cli.StringFlag{
 			Name:   "ls-mqtt-user",
