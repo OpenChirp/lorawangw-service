@@ -10,7 +10,7 @@
   version = "0.11.0"
 
 [[projects]]
-  digest = "1:c829d6b60e09c9bb8cd40dfbef0db8153a7476984e7a8742fc6a87d198359d25"
+  digest = "1:b0d1944be4baaa65c713bccf45fb501405496a4ada9ca028b186cc82d60dc975"
   name = "github.com/brocaar/lorawan"
   packages = [
     ".",
@@ -20,7 +20,18 @@
   revision = "493811893ace2e3e4db4bb8e402ce28b72a04198"
 
 [[projects]]
-  digest = "1:4c61673d6ba5cb8d910c62f8174a5ace21be59e80fff66d9de38d931944fa2a1"
+  digest = "1:c7ef450ce524bfedf786e327f484d4d63aaead33931d1cfafa550715d3e7c2dc"
+  name = "github.com/coreos/go-systemd"
+  packages = [
+    "daemon",
+    "journal",
+  ]
+  pruneopts = "UT"
+  revision = "9002847aa1425fb6ac49077c0a630b3b67e0fbfd"
+  version = "v18"
+
+[[projects]]
+  digest = "1:184008c955d6a3226b700c13ed0e875a7a051a759618f9bccba9b5c99f17faa5"
   name = "github.com/eclipse/paho.mqtt.golang"
   packages = [
     ".",
@@ -39,7 +50,7 @@
   revision = "24b0969c4cb722950103eed87108c8d291a8df00"
 
 [[projects]]
-  digest = "1:489536052bc7744088c06ea72c3167a1adccfa206056489700daecafdad26a26"
+  digest = "1:db71ee03c191f7f07cb8840e8072bfdef25248108d52d2c529cabb9f0f76a5ae"
   name = "github.com/jacobsa/crypto"
   packages = [
     "cmac",
@@ -49,7 +60,7 @@
   revision = "293ce0c192fb4f59cd879b46544922b9ed09a13a"
 
 [[projects]]
-  digest = "1:cfa404e70520047cedae17575a36be97210aa9ae27b3263ecb1fa6d1d3efc31c"
+  digest = "1:c5b8c1ad938bbcb8dfc2797425c9b9b74b86e7fbd8e7b4d9284ce98748364950"
   name = "github.com/openchirp/framework"
   packages = [
     ".",
@@ -68,6 +79,22 @@
   version = "v1.0.5"
 
 [[projects]]
+  digest = "1:b24d38b282bacf9791408a080f606370efa3d364e4b5fd9ba0f7b87786d3b679"
+  name = "github.com/urfave/cli"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "cfb38830724cc34fedffe9a2a29fb54fa9169cd1"
+  version = "v1.20.0"
+
+[[projects]]
+  branch = "master"
+  digest = "1:f11d7335245ee25607d939cd530b63526304aa183f2041837fa448265be9dd87"
+  name = "github.com/wercker/journalhook"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "5d0a5ae867b354cbbbd2a9ab8d66b4f96cfaa741"
+
+[[projects]]
   branch = "master"
   digest = "1:3f3a05ae0b95893d90b9b3b5afdb79a9b3d96e4e36e099d841ae602e4aca0da8"
   name = "golang.org/x/crypto"
@@ -77,7 +104,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:a2af876d64fe10b0c29c9d5a959ad73c017e8c6723e5dc8272adf8baca1baae8"
+  digest = "1:ece338c951f4410f9ea21b56ea12f933ffb085672fe868ab57254d1536f384f7"
   name = "golang.org/x/net"
   packages = [
     "internal/socks",
@@ -89,7 +116,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:72d6244a51be9611f08994aca19677fcc31676b3e7b742c37e129e6ece4ad8fc"
+  digest = "1:3364d01296ce7eeca363e3d530ae63a2092d6f8efb85fb3d101e8f6d7de83452"
   name = "golang.org/x/sys"
   packages = [
     "unix",
@@ -104,9 +131,12 @@
   input-imports = [
     "github.com/brocaar/loraserver/models",
     "github.com/brocaar/lorawan",
+    "github.com/coreos/go-systemd/daemon",
     "github.com/eclipse/paho.mqtt.golang",
     "github.com/openchirp/framework",
     "github.com/sirupsen/logrus",
+    "github.com/urfave/cli",
+    "github.com/wercker/journalhook",
   ]
   solver-name = "gps-cdcl"
   solver-version = 1
