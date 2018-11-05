@@ -237,12 +237,11 @@ func ProcessRXHandler(log *logrus.Logger, c *framework.ServiceClient, lsMQTT *pu
 				// devAddrBuf[3] = devAddrBuf[3] & 0x01
 				devAddr := binary.LittleEndian.Uint32(devAddrBuf)
 
-				nwkID := rx.PHYPayload.MACPayload.(*lorawan.MACPayload).FHDR.DevAddr.NwkID()
-
-				err = c.Publish(devTopic+"/"+topicNetworkID, fmt.Sprint(uint(binary.LittleEndian.Uint32(nwkID))))
-				if err != nil {
-					loglocal.Errorf("Failed to publish %s for deviceid %s", topicNetworkID, devid)
-				}
+				// nwkID := rx.PHYPayload.MACPayload.(*lorawan.MACPayload).FHDR.DevAddr.NwkID()
+				// err = c.Publish(devTopic+"/"+topicNetworkID, fmt.Sprint(uint(binary.LittleEndian.Uint32(nwkID))))
+				// if err != nil {
+				// 	loglocal.Errorf("Failed to publish %s for deviceid %s", topicNetworkID, devid)
+				// }
 
 				err = c.Publish(devTopic+"/"+topicDevAddr, fmt.Sprint(devAddr))
 				if err != nil {
