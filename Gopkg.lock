@@ -10,14 +10,15 @@
   version = "0.11.0"
 
 [[projects]]
-  digest = "1:b0d1944be4baaa65c713bccf45fb501405496a4ada9ca028b186cc82d60dc975"
+  branch = "master"
+  digest = "1:589dcde08c0ec6d1173da854ab31915e8d808504ba25cf31ea44b0d2ff8c3773"
   name = "github.com/brocaar/lorawan"
   packages = [
     ".",
     "band",
   ]
   pruneopts = "UT"
-  revision = "493811893ace2e3e4db4bb8e402ce28b72a04198"
+  revision = "18588db1582cee6be25d20fad37bf091a78580e4"
 
 [[projects]]
   digest = "1:c7ef450ce524bfedf786e327f484d4d63aaead33931d1cfafa550715d3e7c2dc"
@@ -47,36 +48,46 @@
   name = "github.com/golang/groupcache"
   packages = ["lru"]
   pruneopts = "UT"
-  revision = "24b0969c4cb722950103eed87108c8d291a8df00"
+  revision = "c65c006176ff7ff98bb916961c7abbc6b0afc0aa"
 
 [[projects]]
-  digest = "1:db71ee03c191f7f07cb8840e8072bfdef25248108d52d2c529cabb9f0f76a5ae"
+  branch = "master"
+  digest = "1:c231cdb133bc5f7267b07770e84ad6a0007bb26e99a97a7d1d6b20dd25913551"
   name = "github.com/jacobsa/crypto"
   packages = [
     "cmac",
     "common",
   ]
   pruneopts = "UT"
-  revision = "293ce0c192fb4f59cd879b46544922b9ed09a13a"
+  revision = "d95898ceee0769dac9bf74c46f8f68d3d3d79100"
 
 [[projects]]
-  digest = "1:c5b8c1ad938bbcb8dfc2797425c9b9b74b86e7fbd8e7b4d9284ce98748364950"
+  digest = "1:0a69a1c0db3591fcefb47f115b224592c8dfa4368b7ba9fae509d5e16cdc95c8"
+  name = "github.com/konsorten/go-windows-terminal-sequences"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "5c8c8bd35d3832f5d134ae1e1e375b69a4d25242"
+  version = "v1.0.1"
+
+[[projects]]
+  digest = "1:62d5b2ef1c6581f97c3ee6210ce5a8da196077c5be04175c02b539ecc7f0f406"
   name = "github.com/openchirp/framework"
   packages = [
     ".",
+    "pubsub",
     "rest",
   ]
   pruneopts = "UT"
-  revision = "59b32f17b56d1d5a6f945e2b162f86337eda2cb8"
-  version = "v1.0"
+  revision = "cdaad003029612e522530bafc723a71634ee7d14"
+  version = "v1.1"
 
 [[projects]]
-  digest = "1:9e9193aa51197513b3abcb108970d831fbcf40ef96aa845c4f03276e1fa316d2"
+  digest = "1:69b1cc331fca23d702bd72f860c6a647afd0aa9fcbc1d0659b1365e26546dd70"
   name = "github.com/sirupsen/logrus"
   packages = ["."]
   pruneopts = "UT"
-  revision = "c155da19408a8799da419ed3eeb0cb5db0ad5dbc"
-  version = "v1.0.5"
+  revision = "bcd833dfe83d3cebad139e4a29ed79cb2318bf95"
+  version = "v1.2.0"
 
 [[projects]]
   digest = "1:b24d38b282bacf9791408a080f606370efa3d364e4b5fd9ba0f7b87786d3b679"
@@ -100,11 +111,11 @@
   name = "golang.org/x/crypto"
   packages = ["ssh/terminal"]
   pruneopts = "UT"
-  revision = "a2144134853fc9a27a7b1e3eb4f19f1a76df13c9"
+  revision = "4d3f4d9ffa16a13f451c3b2999e9c49e9750bf06"
 
 [[projects]]
   branch = "master"
-  digest = "1:ece338c951f4410f9ea21b56ea12f933ffb085672fe868ab57254d1536f384f7"
+  digest = "1:50095e42352dba1c6ab2cec7e03b24fb4b513123f41d4ab4dbd2627c25fe18b8"
   name = "golang.org/x/net"
   packages = [
     "internal/socks",
@@ -112,18 +123,18 @@
     "websocket",
   ]
   pruneopts = "UT"
-  revision = "8887df42c721e930089d31b28391090a10a497d7"
+  revision = "c10e9556a7bc0e7c942242b606f0acf024ad5d6a"
 
 [[projects]]
   branch = "master"
-  digest = "1:3364d01296ce7eeca363e3d530ae63a2092d6f8efb85fb3d101e8f6d7de83452"
+  digest = "1:417d27a82efb8473554234a282be33d23b0d6adc121e636b55950f913ac071d6"
   name = "golang.org/x/sys"
   packages = [
     "unix",
     "windows",
   ]
   pruneopts = "UT"
-  revision = "ac767d655b305d4e9612f5f6e33120b9176c4ad4"
+  revision = "9b800f95dbbc54abff0acf7ee32d88ba4e328c89"
 
 [solve-meta]
   analyzer-name = "dep"
@@ -132,8 +143,8 @@
     "github.com/brocaar/loraserver/models",
     "github.com/brocaar/lorawan",
     "github.com/coreos/go-systemd/daemon",
-    "github.com/eclipse/paho.mqtt.golang",
     "github.com/openchirp/framework",
+    "github.com/openchirp/framework/pubsub",
     "github.com/sirupsen/logrus",
     "github.com/urfave/cli",
     "github.com/wercker/journalhook",
